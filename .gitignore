@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+.xlsx
+.xls
+.csv
+
+*Data
+*Dataout
+*Images
+*GIS
