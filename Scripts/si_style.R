@@ -1,7 +1,7 @@
-si_style <- function(font_title = "Helvetica",
-  font_subtitle = "Helvetica",
-  font_plot = "Helvetica",
-  font_caption = "Helvetica") {
+si_style <- function(font_title = "Source Sans Pro",
+  font_subtitle = "Source Sans Pro",
+  font_plot = "Source Sans Pro",
+  font_caption = "Source Sans Pro") {
   
   # Depends on plot_setup being run first
   
