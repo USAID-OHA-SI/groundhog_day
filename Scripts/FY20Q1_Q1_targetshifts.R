@@ -78,6 +78,9 @@
     df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
       bind_rows(df_viz_withinou_usaid_overall)
     
+  #adjust var ordering
+    df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
+      mutate(indicator = factor(indicator, c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR", "OVC_SERV", "KP_PREV")))
   
 
 # PLOT --------------------------------------------------------------------
