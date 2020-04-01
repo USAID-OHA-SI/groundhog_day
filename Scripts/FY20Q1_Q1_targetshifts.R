@@ -2,7 +2,7 @@
 ##  AUTHOR:  jdavis | USAID
 ##  PURPOSE: munge historic targets to fy21 targets, viz
 ##  LICENCE: MIT
-##  DATE:    2020-03-30
+##  DATE:    2020-04-01
 ##  UPDATE:
 
 #Dependancies----------------------------------------------------------
@@ -14,15 +14,23 @@
   library(ggrepel)
 
 
+  source("Scripts/si_style.R")
+
 #folders---------------------------------------------------------------
 
   data_in <- "Data"
   data_out <- "Dataout"
   viz_folder <- "Images"
 
-# IMPORT ------------------------------------------------------------------
+# GLOBAL VARIABLES --------------------------------------------------------
 
-  df_21 <- vroom(file.path(data_in, "df_mer_21.csv"))
+  # Indicators of focue
+    indc <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR", "OVC_SERV", "KP_PREV")
+  
+# IMPORT ------------------------------------------------------------------
+  
+  #import
+    df_21 <- vroom(file.path(data_in, "df_mer_21.csv"))
   
 # MUNGE -------------------------------------------------------------------
 
@@ -67,9 +75,9 @@
       mutate(operatingunit = case_when(indicator == "HTS_TST" ~ "USAID Globally"))
   
   #bind OU + Global together
-  df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
-    bind_rows(df_viz_withinou_usaid_overall)
-  
+    df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
+      bind_rows(df_viz_withinou_usaid_overall)
+    
   
 
 # PLOT --------------------------------------------------------------------
@@ -77,37 +85,42 @@
   df_viz_withinou_fltr %>% 
     ggplot(aes(x = fiscal_year, y = agency_share, group = operatingunit,
                label = if_else(fiscal_year == max(fiscal_year), operatingunit, NA_character_))) +
-    geom_line(aes(y = usaid_share), size = 1, colour = "#909090", na.rm = TRUE) +
-    geom_point(aes(y = usaid_share), size = 5, shape = 21, fill = "#909090", colour = "#909090", stroke = 0.25, na.rm = TRUE) +
-    geom_line(size = 1, colour = "#909090", na.rm = TRUE) +
+    geom_line(aes(y = usaid_share), size = .5, colour = "gray80", na.rm = TRUE) +
+    geom_point(aes(y = usaid_share), size = 5, shape = 21, fill = "#909090", colour = "gray80", stroke = 0.25, na.rm = TRUE) +
+    geom_line(size = .5, colour = "gray80", na.rm = TRUE) +
     geom_point(aes(fill = agency_share), size = 5, shape = 21, colour = "#909090", stroke = 0.25, na.rm = TRUE) +
     geom_text_repel(hjust = 0,
-                    force = 1, point.padding=unit(1, 'lines'),
+                    force = 9, point.padding=unit(1, 'lines'),
                     direction = 'x',
                     nudge_x = 0.1,
                     segment.size = 0.1,
+                    size = 3,
+                    family = "Source Sans Pro",
                     na.rm = TRUE) +
-    geom_text_repel(aes(y = usaid_share,
-                        ),
+    geom_text_repel(aes(y = usaid_share,),
                     hjust = 0,
                     force = 1, point.padding=unit(1, 'lines'),
                     direction = 'x',
                     nudge_x = 0.1,
                     segment.size = 0.1,
+                    size = 3,
+                    family = "Source Sans Pro",
                     na.rm = TRUE) +
     facet_wrap(~indicator) +
     theme_minimal() + si_style() +
-    theme(
-      panel.grid.major.y = ggplot2::element_blank(),
-      plot.caption = element_text(hjust = 0, face = "italic")) +
+    theme(legend.position = "none",
+          panel.grid.major.y = ggplot2::element_blank(),
+          plot.caption = element_text(hjust = 0, face = "italic"),
+          #panel.spacing = unit(1, "lines"),
+          strip.text = element_text(face = "bold", size = 12)) +
     scale_fill_viridis_c(label = scales::percent, direction = -1, option = "A") +
     scale_x_continuous(breaks = c(2020, 2021), limits = c(2020, 2021.5)) +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-    labs(x = NULL, y = NULL, fill = "Agency Share of Targets",
+    labs(x = NULL, y = NULL, #fill = "Agency Share of Targets",
          title = "GLOBALLY NO MAJOR SHIFT IN TARGET SHARES",
          subtitle = "Largest target gains/losses (+10%) displayed against USAID overall share",
          caption = "  Note: Only OUs with shifts of +10% between 2020-21 targets are displayed
          Source: FY15-16 MSD, FY17-20 MSD, COP20 Data Pack")
 
   #expore
-    ggsave(file.path(viz_folder, "Q1Review_targetshifts_slope.png"), dpi = 330, width = 10, height = 5.66)
+    ggsave(file.path(viz_folder, "Q1Review_targetshifts_slope.png"), dpi = 330, width = 10, height = 5.66, scale = 1.2)
