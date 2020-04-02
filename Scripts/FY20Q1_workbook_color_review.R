@@ -1,5 +1,5 @@
 ##  PROJECT: FY20Q1 
-##  AUTHOR:  jdavis | USAID
+##  AUTHOR:  tessam achafetz | USAID
 ##  PURPOSE: review colors used in the FY20Q1 Slide deck
 ##  LICENCE: MIT
 ##  DATE:    2020-04-02
