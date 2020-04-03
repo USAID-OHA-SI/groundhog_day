@@ -26,6 +26,8 @@
   data_in <- "Data"
   data_out <- "Dataout"
   viz_folder <- "Images"
+  
+  source("Scripts/si_style.R")
 
 #create cop20 targets--------------------------------------------------
 
@@ -60,6 +62,7 @@
   
   # Indicators of focue
   indc <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR", "OVC_SERV", "KP_PREV")
+  ind_v2 <- c("HTS_TST_POS", "TX_CURR", "TX_NEW", "VMMC_CIRC", "PrEP_NEW", "OVC_SERV", "KP_PREV")
 
 
 #munge historic targets------------------------------------------------
@@ -120,8 +123,8 @@
   # Share 2: What are the total targets across the Fiscal year, within agences (OU shares)
   # To make it easier, we'll create two data frames versus carry constants around at OU level
     
-  df_viz_agency <- df_21 %>% 
-    filter(indicator %in% indc, 
+  df_viz_agency_21 <- df_21 %>% 
+    filter(indicator %in% ind_v2, 
       fiscal_year != 2015) %>% 
     sum_targets(., group = grp_ou_agency) %>% 
     group_by(indicator, fiscal_year) %>% 
@@ -129,9 +132,8 @@
       agency_share = targets / tot_targets,
       ymax = cumsum(agency_share)) %>% 
     ungroup() %>% 
-    mutate(agency_label = if_else(agency_other == "USAID" & fiscal_year %in% c(2016, 2020), 
+    mutate(agency_label = if_else(agency_other == "USAID" & fiscal_year %in% c(2016, 2021), 
       round(agency_share, 2), NA_real_))
-  
     
   df_viz_ou <- df_21 %>% 
     filter(indicator %in% indc,
@@ -180,31 +182,65 @@
   area_share_plot <- function(df, share_var) {
     df %>% 
       group_by(indicator) %>% 
-      mutate(agency_order = fct_reorder(agency_other, {{share_var}})) %>% 
+      mutate(agency_order = fct_reorder(agency_other, {{share_var}}),
+        agency_order = fct_relevel(agency_order, "CDC", after = 1)) %>% 
       ungroup() %>% 
       ggplot(aes(x = fiscal_year, y = {{share_var}}, fill = agency_order, group = agency_order)) +
       geom_area() + 
-      #geom_text(aes(label = scales::percent(agency_label), fill = agency_order),
+      geom_label_repel(aes(label = scales::percent(agency_label, accuracy = 3)), fill = "white",
+        family = "Source Sans Pro Light") +
       #position = position_stack()) +
-      facet_wrap(~indicator, nrow = 2) +
+      facet_wrap(~indicator, nrow = 1) +
       theme_minimal() +
       si_style() +
       theme(panel.grid.major.x = element_blank(),
-        panel.grid.major.y = element_blank()) +
-      scale_y_continuous(label = percent_format(accuracy = 1)) +
-      scale_fill_manual(values = c("CDC" = '#a6bddb', "USAID" = "#045a8d", "Other" = "#E8E8E8"))
+        panel.grid.major.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none",
+        axis.title = element_blank()) +
+      #scale_y_continuous(label = percent_format(accuracy = 1)) +
+      scale_x_continuous(limits = c(2015.9, 2021.1), breaks = seq(2016, 2021, 1)) +
+      scale_fill_manual(values = c("CDC" = '#a6bddb', "USAID" = "#045a8d", "Other" = "#E8E8E8")) 
   }
   
-  # Agency shares
- agency_plot <- area_share_plot(df_viz_agency, agency_share) +
+  # Agency shares - 3 groups
+  testing_plot <-  
+    df_viz_agency_21 %>% 
+    filter(indicator %in% c("HTS_TST_POS", "TX_CURR", "TX_NEW")) %>% 
+    area_share_plot(., agency_share) +
+      labs(x = NULL, y = NULL,
+        fill = "Agency share",
+        title = "USAID SHARE OF TESTING AND TREATMENT TARGETS",
+        subtitle = "USAID'S SHARE OF HTS_TST_POS GREW BY 27% FROM FY16 - FY2021 \n")
+      
+      ggsave(file.path(viz_folder, "Q1Review_test_treatement_shares.png"),
+        plot = testing_plot, dpi = 330, width = 10, height = 5.66)
+ 
+  (ovc_plot <-  
+          df_viz_agency_21 %>% 
+          filter(indicator %in% c("OVC_SERV", "KP_PREV")) %>% 
+          area_share_plot(., agency_share) +
+          labs(x = NULL, y = NULL,
+            fill = "Agency share",
+            title = "USAID SHARE OF KP_PREV AND OVC_SERVE",
+            subtitle = "USAID'S SHARE OF KP_PREV SHRANK BY 33% FROM FY16 - FY2021 \n")) 
+      
+      ggsave(file.path(viz_folder, "Q1Review_ovc_shares.png"),
+        plot = ovc_plot, dpi = 330, width = 10, height = 5.66)                      
+           
+  
+  (vmmc_plot <-  
+    df_viz_agency_21 %>% 
+    filter(indicator %in% c("VMMC_CIRC", "PrEP_NEW")) %>% 
+    area_share_plot(., agency_share) +
     labs(x = NULL, y = NULL,
       fill = "Agency share",
-      title = "USAID'S SHARE OF TESTING TARGETS HAS GROWN BY 5 PERCENTAGE POINTS FROM FY16 - FY21",
-      subtitle = "USAID'S SHARE OF KP_PREV TARGETS SHRANK BY ABOUT 20 PERCENTAGE POINTS") 
+      title = "USAID SHARE OF VMMC_CIRC AND PrEP_NEW",
+      subtitle = "USAID'S SHARE OF PrEP_NEW SHRANK BY 30% FROM FY16 - FY2021 \n")) 
+          
+  ggsave(file.path(viz_folder, "Q1Review_vmmc_shares.png"),
+    plot = vmmc_plot, dpi = 330, width = 10, height = 5.66)
   
-  ggsave(file.path(viz_folder, "Q1Review_target_share.png"),
-    plot = agency_plot, dpi = 330, width = 10, height = 5.66)
- 
   
 
 # OU LEVEL WITHIN USAID ---------------------------------------------------
