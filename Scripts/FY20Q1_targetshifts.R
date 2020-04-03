@@ -75,7 +75,7 @@
       group_by(fiscal_year, indicator) %>% 
       summarize(usaid_share = sum(targets, na.rm = TRUE)/sum(tot_targets, na.rm = TRUE)) %>% 
       ungroup() %>% 
-      mutate(operatingunit = case_when(indicator == "HTS_TST" ~ "USAID Globally"))
+      mutate(operatingunit = case_when(indicator == "HTS_TST_POS" ~ "USAID Globally"))
   
   #bind OU + Global together
     df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
@@ -83,50 +83,70 @@
     
   #adjust var ordering
     df_viz_withinou_fltr <- df_viz_withinou_fltr %>% 
-      mutate(indicator = factor(indicator, c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR", "OVC_SERV", "KP_PREV")))
+      mutate(indicator = factor(indicator, indc))
   
 
 # PLOT --------------------------------------------------------------------
 
-  df_viz_withinou_fltr %>% 
-    ggplot(aes(x = fiscal_year, y = agency_share, group = operatingunit,
-               label = if_else(fiscal_year == max(fiscal_year), operatingunit, NA_character_))) +
-    geom_line(aes(y = usaid_share), size = .5, colour = "gray80", na.rm = TRUE) +
-    geom_point(aes(y = usaid_share), size = 5, shape = 21, fill = "#909090", colour = "gray80", stroke = 0.25, na.rm = TRUE) +
-    geom_line(size = .5, colour = "gray80", na.rm = TRUE) +
-    geom_point(aes(fill = agency_share), size = 5, shape = 21, colour = "#909090", stroke = 0.25, na.rm = TRUE) +
-    geom_text_repel(hjust = 0,
-                    force = 9, point.padding=unit(1, 'lines'),
-                    direction = 'x',
-                    nudge_x = 0.1,
-                    segment.size = 0.1,
-                    size = 3,
-                    family = "Source Sans Pro",
-                    na.rm = TRUE) +
-    geom_text_repel(aes(y = usaid_share,),
-                    hjust = 0,
-                    force = 1, point.padding=unit(1, 'lines'),
-                    direction = 'x',
-                    nudge_x = 0.1,
-                    segment.size = 0.1,
-                    size = 3,
-                    family = "Source Sans Pro",
-                    na.rm = TRUE) +
-    facet_wrap(~indicator) +
-    theme_minimal() + si_style() +
-    theme(legend.position = "none",
-          panel.grid.major.y = ggplot2::element_blank(),
-          plot.caption = element_text(hjust = 0, face = "italic"),
-          #panel.spacing = unit(1, "lines"),
-          strip.text = element_text(face = "bold", size = 12)) +
-    scale_fill_viridis_c(label = scales::percent, direction = -1, option = "A") +
-    scale_x_continuous(breaks = c(2020, 2021), limits = c(2020, 2021.5)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-    labs(x = NULL, y = NULL, #fill = "Agency Share of Targets",
-         title = "GLOBALLY NO MAJOR SHIFT IN TARGET SHARES",
-         subtitle = "Largest target gains/losses (+10%) displayed against USAID overall share",
-         caption = "  Note: Only OUs with shifts of +10% between 2020-21 targets are displayed
+  plot_slope <- function(ind_sel, outpath = NULL){
+    
+    plot <- df_viz_withinou_fltr %>% 
+      filter(indicator %in% {{ind_sel}}) %>% 
+      ggplot(aes(x = fiscal_year, y = agency_share, group = operatingunit,
+                 label = if_else(fiscal_year == max(fiscal_year), operatingunit, NA_character_))) +
+      geom_line(aes(y = usaid_share), size = .5, colour = "gray80", na.rm = TRUE) +
+      geom_point(aes(y = usaid_share), size = 5, shape = 21, fill = "#909090", colour = "gray80", stroke = 0.25, na.rm = TRUE) +
+      geom_line(size = .5, colour = "gray80", na.rm = TRUE) +
+      geom_point(aes(fill = agency_share), size = 5, shape = 21, colour = "#909090", stroke = 0.25, na.rm = TRUE) +
+      geom_text_repel(hjust = 0,
+                      force = 9, point.padding=unit(1, 'lines'),
+                      direction = 'x',
+                      nudge_x = 0.1,
+                      segment.size = 0.1,
+                      size = 3,
+                      family = "Source Sans Pro",
+                      na.rm = TRUE) +
+      geom_text_repel(aes(y = usaid_share),
+                      hjust = 0,
+                      force = 1, point.padding=unit(1, 'lines'),
+                      direction = 'x',
+                      nudge_x = 0.1,
+                      segment.size = 0.1,
+                      size = 3,
+                      family = "Source Sans Pro",
+                      na.rm = TRUE) +
+      facet_wrap(~indicator) +
+      theme_minimal() + si_style() +
+      theme(legend.position = "none",
+            panel.grid.major.y = ggplot2::element_blank(),
+            plot.caption = element_text(hjust = 0, face = "italic"),
+            strip.text = element_text(face = "bold", size = 12),
+            plot.subtitle = element_text(margin = margin(0, 0, 10, 0))) +
+      scale_fill_viridis_c(label = scales::percent, direction = -1, option = "A") +
+      scale_x_continuous(breaks = c(2020, 2021), limits = c(2020, 2021.5)) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      labs(x = NULL, y = NULL, 
+           title = "GLOBALLY NO MAJOR SHIFT IN TARGET SHARES",
+           subtitle = "Largest target gains/losses (+10%) displayed against USAID overall share",
+           caption = "  Note: Only OUs with shifts of +10% between 2020-21 targets are displayed
          Source: FY15-16 MSD, FY17-20 MSD, COP20 Data Pack")
+    
+    if(!is.null(outpath)){
+      ind_sel <- str_remove_all(ind_sel, "_") %>% paste0(collapse = "_")
+      ggsave(file.path(viz_folder, paste0("Q1Review_targetshifts_slope_",ind_sel, ".png")), 
+            dpi = 330, width = 10, height = 5.66, scale = 1.2)
+    }
+    
+    return(plot)
+    
+  }  
+ 
 
-  #expore
-    ggsave(file.path(viz_folder, "Q1Review_targetshifts_slope.png"), dpi = 330, width = 10, height = 5.66, scale = 1.2)
+    
+  #testing
+    plot_slope(ind_grp1)
+    
+  #plot by group
+    plot_slope(ind_grp1, viz_folder)
+    plot_slope(ind_grp2, viz_folder)
+    plot_slope(ind_grp3, viz_folder)
