@@ -17,6 +17,8 @@
   library(extrafont)
   library(patchwork)
   library(ggrepel)
+  library(flextable)
+  library(webshot)
 
 
 #folders---------------------------------------------------------------
@@ -289,5 +291,30 @@
     
 
 
+# SUMMARY TABLE -----------------------------------------------------------
 
+  df_table <- 
+    df_21 %>% 
+    filter(indicator %in% indc,
+      fiscal_year == 2021,
+      agency_other == "USAID") %>% 
+    group_by(operatingunit, indicator) %>% 
+    summarise(targets = sum(targets)) %>%
+    ungroup() %>% 
+    spread(indicator, targets) %>%
+    rename(OU = operatingunit) %>%
+    select(OU, HTS_TST, HTS_TST_POS, TX_NEW, TX_CURR, OVC_SERV, KP_PREV) %>%
+    arrange(desc(TX_CURR))  
+  
+ ft <-  
+   flextable(df_table) %>%
+    set_header_labels() %>% 
+    colformat_num(digits = 0) %>% 
+    add_header_lines(values = "USAID FY21 targets by indicator") %>%
+    flextable::theme_vanilla() %>% 
+    font(fontname = "Gill Sans MT", part = "all") %>% 
+    fontsize(size = 14, part = "header") %>% 
+    autofit() %>% bg(bg = "#ffffff", part = "all")
+  
+  save_as_image(ft, path = file.path(viz_folder, "FY21_OUtargets_by_indicator.png"))
 
