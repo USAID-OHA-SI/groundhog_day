@@ -25,9 +25,10 @@
 # GLOBAL VARIABLES --------------------------------------------------------
 
   # Indicators of focus
-    indc <- c("HTS_TST_POS", "TX_NEW", "TX_CURR", 
-              "VMMC_CIRC", "PrEP_NEW",
-              "OVC_SERV", "KP_PREV")
+    ind_grp1 <- c("HTS_TST_POS", "TX_NEW", "TX_CURR")
+    ind_grp2 <- c("VMMC_CIRC", "PrEP_NEW")
+    ind_grp3 <- c("OVC_SERV", "KP_PREV")
+    indc <- c(ind_grp1, ind_grp2, ind_grp3)
   
 # IMPORT ------------------------------------------------------------------
   
