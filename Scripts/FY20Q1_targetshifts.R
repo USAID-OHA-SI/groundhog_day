@@ -1,9 +1,9 @@
-##  PROJECT: Q2 review target analysis
-##  AUTHOR:  jdavis | USAID
+##  PROJECT: Q1 review target analysis
+##  AUTHOR:  achafetz tessam | USAID
 ##  PURPOSE: munge historic targets to fy21 targets, viz
 ##  LICENCE: MIT
 ##  DATE:    2020-04-01
-##  UPDATE:
+##  UPDATE:  2020-04-03
 
 #Dependancies----------------------------------------------------------
 
@@ -24,8 +24,10 @@
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
-  # Indicators of focue
-    indc <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR", "OVC_SERV", "KP_PREV")
+  # Indicators of focus
+    indc <- c("HTS_TST_POS", "TX_NEW", "TX_CURR", 
+              "VMMC_CIRC", "PrEP_NEW",
+              "OVC_SERV", "KP_PREV")
   
 # IMPORT ------------------------------------------------------------------
   
