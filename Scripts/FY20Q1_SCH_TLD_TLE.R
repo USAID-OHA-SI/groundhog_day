@@ -3,7 +3,7 @@
 ##  PURPOSE: review TLD/TLE transition
 ##  LICENCE: MIT
 ##  DATE:    2020-04-04
-##  UPDATE:  2020-04-06
+##  UPDATE:  2020-04-13
 
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -15,6 +15,7 @@
   library(scales)
   library(extrafont)
   library(RColorBrewer)
+  library(patchwork)
 
 
 # IMPORT ------------------------------------------------------------------
@@ -66,10 +67,9 @@
                str_replace_all("_", " ") %>% 
                str_to_upper() %>% 
                str_replace("TABS", "tabs"),
-             regimen_type = ifelse(regimen_type == "LNZ", "LNZ [LMI]", regimen_type),
-             regimen_type = factor(regimen_type, c("TLD 30 tabs", "TLD 90 tabs", "TLD 180 tabs", "TLE400", "TLE600", "LNZ [LMI]")),
-             regimen = str_extract(regimen_type, "(TL(D|E)|LNZ \\[LMI\\])"),
-             regimen = factor(regimen, c("TLD", "TLE", "LNZ [LMI]"))) %>% 
+             regimen_type = factor(regimen_type, c("TLD 30 tabs", "TLD 90 tabs", "TLD 180 tabs", "TLE400", "TLE600", "LNZ")),
+             regimen = str_extract(regimen_type, "(TL(D|E)|LNZ)"),
+             regimen = factor(regimen, c("TLD", "TLE", "LNZ"))) %>% 
       arrange(country, regimen, regimen_type, date)
     
   #convert to months of treatment issued
@@ -91,7 +91,7 @@
       ungroup() %>% 
       group_by(country) %>% 
       mutate(tle_growth = case_when(date == max(date) & regimen == "TLE" ~ mos_issued > lag(mos_issued, order_by = date))) %>% 
-      fill(tle_growth, .direction = "up")
+      fill(tle_growth, .direction = "up") %>% 
       ungroup() %>% 
       arrange(country, regimen, date)
     
@@ -126,8 +126,7 @@
       labs(x = NULL, y = NULL, color = NULL,
            title = "NO MAJOR TRENDS IN REGIMEN TYPE",
            subtitle = "Months of Treatment Issued by Regimen Type",
-           caption = "Note: LNZ reported as Last Month Issued 
-           Ordered by # of months of treatment issues
+           caption = "Note: Ordered by # of months of treatment issues
            Source: Monthly SCH FLARE Reports") +
       scale_y_continuous(label = comma) +
       scale_color_manual(values = c(col_tld, col_tle, col_lnz)) +
@@ -151,9 +150,8 @@
       labs(x = NULL, y = NULL, color = NULL,
            title = "RECENT RISE IN TLE IN A HANDFUL OF COUNTRIES",
            subtitle = "Months of Treatment Issued by Regimen Type",
-           caption = "Note: LNZ reported as Last Month Issued (LMI)
-           Ordered by # of months of treatment issues
-           Source:Monthly SCH FLARE Reports") +
+           caption = "Note: Ordered by # of months of treatment issues
+           Source: Monthly SCH FLARE Reports") +
       facet_wrap(~ country)  +
       scale_y_continuous(labels = percent, limits = c(0, 1)) +
       scale_color_manual(values = c(col_tld[2], col_tle, col_lnz)) +
@@ -184,6 +182,51 @@
             strip.text = element_text(size = 12, face = "bold"),
             plot.caption = element_text(size = 9, color = "gray30"))
     
-    ggsave("Images/MI_Trends_TLD.png", dpi = 300,
+    
+    
+    no_chng <- c("Zimbabwe", "Uganda", "Ethiopia",
+                 "Lesotho", "Botswana", "Ghana", 
+                 "Rwanda", "Burundi")
+    
+   v1 <- df_mi_tld_shares %>% 
+      filter(country != "Cameroon",
+             !country %in% no_chng) %>% 
+      ggplot(aes(date, mi_tld_share,  color = regimen_type)) +
+      geom_hline(aes(yintercept =0), color = "gray50") +
+      geom_line(size = .6) +
+      geom_point(size = 3) +
+      facet_wrap(~ country) +
+      labs(x = NULL, y = NULL, color = NULL,
+           title = "Progress Camp",
+           subtitle = "Months of Treatment Issued by Regimen Type",
+           caption = "Monthly SCH FLARE Reports") +
+      scale_y_continuous(labels = percent, limits = c(0, 1.05)) +
+      scale_color_manual(values = c(col_tld)) +
+      theme(legend.position = "top",
+            plot.title = element_text(face = "bold"),
+            strip.text = element_text(size = 12, face = "bold"),
+            plot.caption = element_text(size = 9, color = "gray30"))
+   
+   v2 <- df_mi_tld_shares %>% 
+     filter(country != "Cameroon",
+            country %in% no_chng) %>% 
+     ggplot(aes(date, mi_tld_share,  color = regimen_type)) +
+     geom_hline(aes(yintercept =0), color = "gray50") +
+     geom_line(size = .6) +
+     geom_point(size = 3) +
+     facet_wrap(~ country) +
+     labs(x = NULL, y = NULL, color = NULL,
+          title = "Stagnant Camp",
+          subtitle = "Months of Treatment Issued by Regimen Type",
+          caption = "Monthly SCH FLARE Reports") +
+     scale_y_continuous(labels = percent, limits = c(0, 1.05)) +
+     scale_color_manual(values = c(col_tld)) +
+     theme(legend.position = "top",
+           plot.title = element_text(face = "bold"),
+           strip.text = element_text(size = 12, face = "bold"),
+           plot.caption = element_text(size = 9, color = "gray30"))
+   v_combo <- v1 + v2
+    
+    ggsave("Images/MI_Trends_TLD.png", v_combo, dpi = 300,
            height = 5.66, width = 10)
     
