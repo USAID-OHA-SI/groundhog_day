@@ -26,21 +26,36 @@ data_in <- "Data"
     mutate(red = col2rgb(ColorHex)[1,],
            green = col2rgb(ColorHex)[2,],
            blue = col2rgb(ColorHex)[3,]) %>% 
-    arrange(red, green, blue) %>% 
+    arrange(color, red, green, blue) %>% 
     mutate(id = row_number()) %>% 
     mutate(color_sort = fct_reorder(ColorHex, id))
+  
 
-  df %>% group_by(ColorHex, color_sort) %>% 
+ yrange <-  unique(df$ColorHex) %>% length()
+  
+ # Group by color, print all different colors sorted and faceted
+  colors_df <- 
+    df %>% group_by(color_sort, ColorHex, color) %>% 
     summarise_at(vars(red, green, blue), mean, na.rm = TRUE) %>% 
-    ungroup() %>% 
+    group_by(color) %>% 
     mutate(id = row_number(),
-           y = 1) %>% 
-    ggplot(aes(x = id, y = y, fill = color_sort)) +
-    geom_tile() +
-    scale_fill_manual(values = df$ColorHex) + 
+           y = ceiling(id / 20)
+    ) %>% 
+    group_by(y, color) %>% 
+    mutate(x = row_number()) %>%
+    ungroup()
+  
+      #y = if_else(id %% 3 %in% c(1, 2), id %% 3, 3)) %>% 
+    #add_column(x = rep_along(1:yrange, 1:3)) %>% 
+    colors_df %>% 
+      ggplot(aes(x = x, y = y, fill = color_sort)) +
+    geom_tile(color = "white") +
+   scale_fill_identity() + 
+      facet_wrap(~color, scales = "free", nrow = 2) +
+    theme_void() +
     theme(legend.position = "none")
   
-  
+
 
 # ALL COLORS --------------------------------------------------------------
 
@@ -68,9 +83,11 @@ data_in <- "Data"
   
   viz_cat %>% 
     mutate(pair_sorted = reorder_within(pair, ColorHex, element)) %>% 
-    ggplot(aes(x = 1, y = pair_sorted, fill = factor(id))) + geom_tile() +
+    ggplot(aes(x = 1, y = pair_sorted, fill = ColorHex)) + 
+    geom_tile(color = "white", size = 0.25) +
     #geom_text(aes(label = mapping), size = 3) +
-    scale_fill_manual(values = viz_cat$ColorHex) +
+    scale_fill_identity() +
+    #scale_fill_manual(values = viz_cat$ColorHex) +
     theme_minimal() + theme(legend.position = "none") +
     facet_wrap(~element, scales = "free") + 
     labs(x = NULL, y = NULL) +
@@ -84,10 +101,10 @@ data_in <- "Data"
            !is.na(in_group))
   
   viz_dup %>% 
-    ggplot(aes(x = mapping, y = ColorHex, fill = factor(id))) + geom_tile() +
+    ggplot(aes(x = mapping, y = ColorHex, fill = factor(id))) + geom_tile(color = "white", size = 0.25) +
     scale_fill_manual(values = viz_dup$ColorHex) +
     theme_minimal() + theme(legend.position = "none") +
-    facet_wrap(~mapping, scales = "free")+
+    facet_wrap(~mapping, scales = "free", nrow = 2)+
     labs(x = NULL, y = NULL) +
     theme(axis.text = element_blank(),
           panel.grid = element_blank(),
