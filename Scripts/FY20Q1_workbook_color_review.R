@@ -3,7 +3,7 @@
 ##  PURPOSE: review colors used in the FY20Q1 Slide deck
 ##  LICENCE: MIT
 ##  DATE:    2020-04-02
-##  UPDATE:
+##  UPDATE:  2020-04-24; New base dataset added and munged
 
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -21,6 +21,8 @@ data_in <- "Data"
 # IMPORT ------------------------------------------------------------------
   
   #data source: https://drive.google.com/file/d/1dmtJtUhjkpPSI_zeK1ZFOvReSrgsXnK7/view?usp=sharing
+  #updated datasource: https://drive.google.com/open?id=1zm1-Os9drgP5e9wvcyt1gW-ImjWpL_St
+
 
   df <- read_excel(file.path(data_in, "FY20Q1_color_standards.xlsx")) %>% 
     mutate(red = col2rgb(ColorHex)[1,],
