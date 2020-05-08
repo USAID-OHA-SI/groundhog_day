@@ -16,6 +16,7 @@
 
 
 data_in <- "Data"
+images <- "Images"
 
 
 # IMPORT ------------------------------------------------------------------
@@ -56,18 +57,62 @@ data_in <- "Data"
       facet_wrap(~color, scales = "free", nrow = 2) +
     theme_void() +
     theme(legend.position = "none")
+    
+  # Color groups
+    df %>% 
+      count(color, sort = TRUE) %>% 
+      ggplot(aes(x = fct_reorder(color, n, .desc = TRUE), y = 1, fill = color)) + 
+               geom_tile() + 
+      geom_text(aes(label = n), color = "white", size = 14) +
+               si_style_nolines() + 
+      coord_fixed() +
+      theme(axis.text.y = element_blank(),
+            axis.text.x = element_text(size = 18)) + 
+               scale_fill_identity() +
+      labs(title = "MAJOR COLOR GROUPINGS AND FREQUENCY OF OCCURENCE", x = NULL, y = NULL,
+           caption = "Souce: Color data extracted from Q1 Review")
   
 
+    df %>% filter(mapping %in% c("USAID")) %>% count(mapping, mapping, sort = TRUE) %>%
+      mutate(color = "#002F6C") %>% 
+      ggplot(aes(x = mapping, y = n, fill = color)) + 
+      geom_col() + 
+      coord_flip() +
+      scale_fill_identity() +
+      si_style()
+    
 
 # ALL COLORS --------------------------------------------------------------
 
-  df %>% 
-    mutate(size = 4) %>% 
-    ggplot(aes(x = ColorHex, y = color, fill = factor(id))) + geom_tile() +
-    scale_fill_manual(values = df$ColorHex) +
-    theme_minimal() + theme(legend.position = "none") +
-    facet_wrap(~mapping, scales = "free")+
-    theme(axis.text.x = element_text(angle = 90))
+  plot_color <- function(clr = "blue") {
+    
+  viz <-
+      df %>% 
+        filter(color == {{clr}}) %>% 
+        mutate(size = 4) %>% 
+        ggplot(aes(x = ColorHex, y = mapping, fill = ColorHex)) + 
+          geom_tile() +
+        scale_fill_identity() +
+        theme_minimal() + theme(legend.position = "none") +
+        facet_wrap(~color, scales = "free") +
+        theme(axis.text.x = element_text(angle = 90),
+              strip.text = element_text(size = 20)) +
+        labs(x = NULL, y = NULL)
+    
+    ggsave(file.path(images, paste0("Q1_color_review_", {{clr}}, ".png")),
+           plot = viz, 
+           height = 6,
+           width = 8, 
+           dpi = "retina", 
+           scale = 1.15)
+    
+    print(viz)
+  }
+  
+# Print each color level summarizing it's use by mapping    
+ unique(df$color) %>% 
+   walk(plot_color)
+ 
 
 # GROUPED COLORS ----------------------------------------------------------
 
@@ -95,7 +140,7 @@ data_in <- "Data"
     labs(x = NULL, y = NULL) +
     theme(axis.text = element_blank(),
           panel.grid = element_blank(),
-          strip.text = element_text(face = "bold", size = 8))
+          strip.text = element_text(face = "bold", size = 18))
 
 ## DUPLICATES
   viz_dup <- df_grps %>% 
@@ -110,6 +155,6 @@ data_in <- "Data"
     labs(x = NULL, y = NULL) +
     theme(axis.text = element_blank(),
           panel.grid = element_blank(),
-          strip.text = element_text(face = "bold", size = 13))
+          strip.text = element_text(face = "bold", size = 16))
   
 
