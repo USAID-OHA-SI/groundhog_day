@@ -30,7 +30,8 @@ bar_spark <- function(ind) {
     filter(indicator == {{ind}}, Agency == "USAID") %>% 
     ggplot() + 
     geom_col(aes(Agency, target), fill = "#C0C0C0") +
-    geom_col(aes(Agency, share), fill = "#e04745") +
+    # old color #e04745
+    geom_col(aes(Agency, share), fill = USAID_blue) +
     coord_flip() + 
     theme_void() +
     theme(legend.position = "none",
