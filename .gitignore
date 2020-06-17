@@ -3,11 +3,11 @@
 .RData
 .Ruserdata
 
-.xlsx
-.xls
-.csv
-.png
-.pptx
+*.xlsx
+*.xls
+*.csv
+*.png
+*.pptx
 
 *Data
 *Dataout
