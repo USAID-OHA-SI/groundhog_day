@@ -19,6 +19,7 @@ library(glamr)
 
 # GLOBALS -----------------------------------------------------------------
 
+datim_in <- "/Users/tim/Documents/DATIM_DATA"
 data_in <- "Data"
 data_out <- "Dataout"
 viz_out <- "Images"
@@ -31,7 +32,7 @@ bar_spark <- function(ind) {
     ggplot() + 
     geom_col(aes(Agency, target), fill = "#C0C0C0") +
     # old color #e04745
-    geom_col(aes(Agency, share), fill = "#e04745") +
+    geom_col(aes(Agency, share), fill = USAID_blue) +
     coord_flip() + 
     theme_void() +
     theme(legend.position = "none",
@@ -60,7 +61,7 @@ sum_indic <- function(df) {
 # LOAD AND MUNG -----------------------------------------------------------
 
 # Load most recent MSD
-df <- read_msd(file.path(here(data_in, "MER_Structured_Datasets_OU_IM_FY18-20_20200605_v1_1.txt")))
+df <- read_rds(here(data_in, "MER_Structured_Datasets_OU_IM_FY18-20_20200605_v1_1.rds"))
 
 df_pepfar <- 
   df %>% 
@@ -158,10 +159,17 @@ unique(df_long$indicator) %>%
  
  
 # Check TX_CURR for KPs    
-    df %>% 
-    filter( 
-      indicator == "TX_CURR",
-      fiscal_year == 2020,
-      disaggregate == "KeyPop/HIVStatus") %>%
-    sum_indic()
+ 
+ df %>% filter(indicator == "TX_CURR",
+   fiscal_year == 2020,
+   disaggregate == "KeyPop/HIVStatus") %>% 
+   sum_indic()
+ 
+ df %>% filter(indicator == "TX_CURR",
+   fundingagency == "USAID",
+   fiscal_year == 2020,
+   disaggregate == "KeyPop/HIVStatus") %>% 
+   sum_indic()
+ 
+
     
