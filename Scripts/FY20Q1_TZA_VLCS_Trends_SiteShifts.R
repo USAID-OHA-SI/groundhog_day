@@ -3,7 +3,7 @@
 ##  PURPOSE: pull and structure VLS data accounting for site shifts
 ##  LICENCE: MIT
 ##  DATE:    2020-05-18
-##  UPDATE:  2020-05-19
+##  UPDATE:  2020-06-17
 
 
 
@@ -31,7 +31,7 @@ library(ICPIutilities)
     core_url <-
       paste0(baseurl,"api/29/analytics?",
              "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-             "dimension=pe:2017Q3;2017Q4;2018Q1;2018Q2;2018Q3;2018Q3;2018Q4;2019Q1;2019Q2;2019Q3;2019Q4&", #period
+             "dimension=pe:2017Q3;2017Q4;2018Q1;2018Q2;2018Q3;2018Q3;2018Q4;2019Q1;2019Q2;2019Q3;2019Q4;2020Q1&", #period
              "dimension=bw8KHXzxd9i&", #Funding Agency
              "dimension=SH885jaRe0o&", #Funding Mechanism
              "dimension=LxhLO68FcXm:MvszPTQrUhy;bZOF8bon1dD&", #technical area - TX_CURR, TX_PVLS
@@ -49,7 +49,7 @@ library(ICPIutilities)
     core_url <-
       paste0(baseurl,"api/29/analytics?",
              "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-             "dimension=pe:2019Q2;2019Q3;2019Q4&", #period
+             "dimension=pe:2019Q3;2019Q4;2020Q1&", #period
              "dimension=bw8KHXzxd9i&", #Funding Agency
              "dimension=SH885jaRe0o&", #Funding Mechanism
              "dimension=LxhLO68FcXm:MvszPTQrUhy;bZOF8bon1dD&", #technical area - TX_CURR, TX_PVLS
@@ -69,7 +69,7 @@ library(ICPIutilities)
     df_lvls <- identify_levels(username = myuser, password = mypwd(myuser))
   
   #pull orgunit uids
-    df_uids <- pull_txagesex(username = myuser, password = mypwd(myuser))
+    df_uids <- identify_ouuids(username = myuser, password = mypwd(myuser))
   
   #table for API use
     ctry_list <- left_join(df_lvls, df_uids, by = c("country_name" = "displayName")) %>% 
@@ -189,12 +189,13 @@ library(ICPIutilities)
     df_tza <- df_tza %>% 
       filter(!period %in% c("FY17Q4", "FY18Q1", "FY18Q2")) %>% 
       complete(period, nesting(orgunituid, disagg, age, sex)) %>% 
+      arrange(orgunituid, disagg, age, sex, period) %>% 
       group_by(orgunituid) %>% 
       fill(fundingagency, mech_code) %>% 
-      arrange(orgunituid, disagg, sex, age, period) %>% 
       group_by(orgunituid, disagg, sex, age) %>% 
       mutate(TX_CURR_lag2 = lag(TX_CURR, 2)) %>% 
-      ungroup()
+      ungroup() %>% 
+      filter(!is.na(fundingagency))
   
   #aggregate up to agency totals
     df_tza_agency <- df_tza %>% 
@@ -213,20 +214,20 @@ library(ICPIutilities)
       select(fundingagency, period, VL_COVERAGE, VL_SUPPRESSION) %>% 
       gather(type, value, VL_COVERAGE, VL_SUPPRESSION) %>% 
       mutate(type = str_replace(type, "_", " "),
-             endpoint = case_when(str_detect(period, "Q1") ~ value),
-             lab = case_when(period == "FY20Q1" ~ paste(percent(value, 1),fundingagency),
-                             period == "FY19Q1" ~ percent(value, 1)))
+             endpoint = case_when(period %in% c(min(period), max(period)) ~ value),
+             lab = case_when(period == max(period) ~ paste(percent(value, 1),fundingagency),
+                             period == min(period) ~ percent(value, 1)))
     
   #df for agency vline in viz
-    df_tza_trends_fy20q1 <- df_tza_trends %>% 
-      filter(period == "FY20Q1") %>% 
+    df_tza_trends_maxpd <- df_tza_trends %>% 
+      filter(period == max(period)) %>% 
       select(-endpoint, -lab) %>% 
       mutate(fundingagency = factor(fundingagency, c("USAID", "CDC", "DOD")))
     
   #calc VLC/S for age/sex in FY20Q1
     df_tza_agesex <- df_tza_agency %>% 
       filter(disagg == "Age/Sex",
-             period == "FY20Q1") %>% 
+             period == max(period)) %>% 
       mutate(VL_COVERAGE = TX_PVLS_D/TX_CURR_lag2,
              VL_SUPPRESSION = TX_PVLS/TX_PVLS_D) %>% 
       select(-TX_CURR, -TX_PVLS, -TX_PVLS_D, -TX_CURR_lag2) %>% 
@@ -255,19 +256,21 @@ library(ICPIutilities)
   
   plot <- function(ind){
     
-    df_tza_trends <- filter(df_tza_trends, type == ind)
-    df_tza_trends_fy20q1 <- filter(df_tza_trends_fy20q1, type == ind)
-    df_tza_agesex <- filter(df_tza_agesex, type == ind)
+    df_trends <- filter(df_tza_trends, type == ind)
+    df_trends_maxpd <- filter(df_tza_trends_maxpd, type == ind)
+    df_agesex <- filter(df_tza_agesex, type == ind)
     
-    v_trends <- df_tza_trends %>% 
+    pd_max <- max(df_trends$period)
+    
+    v_trends <- df_trends %>% 
       ggplot(aes(period, value, group = fundingagency, color = fundingagency)) +
       geom_path(size = .9) +
       geom_point(aes(y = endpoint), size = 5, na.rm = TRUE) +
       geom_text(aes(label = lab,                                 
-                    hjust = ifelse(period == "FY19Q1", 1.4, -.4)), 
+                    hjust = ifelse(period == pd_max, -.2, 1.4)), 
                 family = "Source Sans Pro", color = "gray30",
                 na.rm = TRUE) +
-      expand_limits(x = c(1, 7)) + 
+      expand_limits(x = c(0, 7.5)) + 
       scale_y_continuous(label = percent_format(1)) +
       scale_color_manual(values = pal_agency) +
       labs(x = NULL, y = NULL,
@@ -276,18 +279,18 @@ library(ICPIutilities)
       theme(legend.position = "none")
     
     
-    v_agesex <- df_tza_agesex %>% 
+    v_agesex <- df_agesex %>% 
       ggplot(aes(value, age, group = age)) +
-      geom_vline(data = df_tza_trends_fy20q1, aes(xintercept = value),
+      geom_vline(data = df_trends_maxpd, aes(xintercept = value),
                  color = "gray50") + 
       geom_path(size = .9, color = "gray50") +
       geom_point(aes(fill = agencysex), shape = 21, color = "white", size = 4, na.rm = TRUE) +
       facet_grid(~ fundingagency) +
       labs(x = NULL, y = NULL,
-           title = paste("FY20Q1", ind,"BY AGE AND SEX"),
+           title = paste(pd_max, ind,"BY AGE AND SEX"),
            subtitle = "Females = darker shade, Males = lighter shade") +
       scale_x_continuous(label = percent_format(1)) +
-      scale_fill_manual(values = pal_agencysex, name = NULL) + 
+      scale_fill_manual(values = pal_agencysex, name = NULL) +
       si_style() +
       theme(panel.border = element_rect(color = "gray30", fill = NA),
             legend.position = "none",
@@ -298,7 +301,7 @@ library(ICPIutilities)
     v_trends + v_agesex  +
       plot_annotation(caption = "Vertical line denotes agency VL total in FY20
                     Site transitions have been accounted for in data preparation
-                    Source: DATIM API [2020-05-19]") &
+                    Source: DATIM API [2020-06-17]") &
       theme(plot.caption = element_text(family = "Source Sans Pro", color = "gray30"))
     
     filename <- paste0("Agency_", ind, ".png")
@@ -332,19 +335,19 @@ library(ICPIutilities)
       select(fundingagency, mech_code, partner, period, VL_COVERAGE, VL_SUPPRESSION) %>% 
       gather(type, value, VL_COVERAGE, VL_SUPPRESSION) %>% 
       mutate(type = str_replace(type, "_", " "),
-             endpoint = case_when(str_detect(period, "Q1") ~ value),
-             lab = case_when(period == "FY20Q1" ~ paste(percent(value, 1),partner),
-                             period == "FY19Q1" ~ percent(value, 1)))
+             endpoint = case_when(period %in% c(min(period), max(period)) ~ value),
+             lab = case_when(period == max(period) ~ paste(percent(value, 1),partner),
+                             period == min(period) ~ percent(value, 1)))
   #df for partner vline in viz
-    df_tza_mech_trends_fy20q1 <- df_tza_mech_trends %>% 
-      filter(period == "FY20Q1") %>% 
+    df_tza_mech_trends_maxpd <- df_tza_mech_trends %>% 
+      filter(period == max(period)) %>% 
       select(-endpoint, -lab) %>% 
       mutate(fundingagency = factor(fundingagency, c("USAID", "CDC", "DOD")))
   
   #Age/Sex VLC/S calcs
   df_tza_mech_agesex <- df_tza_mech %>% 
     filter(disagg == "Age/Sex",
-           period == "FY20Q1") %>% 
+           period == max(period)) %>% 
     mutate(VL_COVERAGE = TX_PVLS_D/TX_CURR_lag2,
            VL_SUPPRESSION = TX_PVLS/TX_PVLS_D) %>% 
     select(-TX_CURR, -TX_PVLS, -TX_PVLS_D, -TX_CURR_lag2) %>% 
@@ -362,19 +365,22 @@ library(ICPIutilities)
   
   plot_mech <- function(ind){
     
-    df_tza_mech_trends <- filter(df_tza_mech_trends, type == ind)
-    df_tza_mech_trends_fy20q1 <- filter(df_tza_mech_trends_fy20q1, type == ind)
-    df_tza_mech_agesex <- filter(df_tza_mech_agesex, type == ind)
+    df_mech_trends <- filter(df_tza_mech_trends, type == ind)
+    df_mech_trends_maxpd <- filter(df_tza_mech_trends_maxpd, type == ind)
+    df_mech_agesex <- filter(df_tza_mech_agesex, type == ind)
     
-    v_trends <- df_tza_mech_trends %>% 
+    pd_max <- max(df_mech_trends$period)
+    
+    
+    v_trends <- df_mech_trends %>% 
       ggplot(aes(period, value, group = partner, color = fundingagency)) +
       geom_path(size = .9) +
       geom_point(aes(y = endpoint), size = 5, na.rm = TRUE) +
       geom_text(aes(label = lab,                                 
-                    hjust = ifelse(period == "FY19Q1", 1.4, -.4)), 
+                    hjust = ifelse(period == pd_max,-.2, 1.4)), 
                 family = "Source Sans Pro", color = "gray30",
                 na.rm = TRUE) +
-      expand_limits(x = c(1, 7)) + 
+      expand_limits(x = c(0, 8)) + 
       scale_y_continuous(label = percent_format(1)) +
       scale_color_manual(values = pal_agency) +
       labs(x = NULL, y = NULL,
@@ -383,15 +389,15 @@ library(ICPIutilities)
       theme(legend.position = "none")
     
     
-    v_agesex <- df_tza_mech_agesex %>% 
+    v_agesex <- df_mech_agesex %>% 
       ggplot(aes(value, age, group = age)) +
-      geom_vline(data = df_tza_mech_trends_fy20q1, aes(xintercept = value),
+      geom_vline(data = df_mech_trends_maxpd, aes(xintercept = value),
                  color = "gray50") + 
       geom_path(size = .9, color = "gray50") +
       geom_point(aes(fill = agencysex), shape = 21, color = "white", size = 4, na.rm = TRUE) +
       facet_grid(~ partner) +
       labs(x = NULL, y = NULL,
-           title = paste("FY20Q1", ind,"BY AGE AND SEX"),
+           title = paste(pd_max, ind,"BY AGE AND SEX"),
            subtitle = "Females = darker shade, Males = lighter shade") +
       scale_x_continuous(label = percent_format(1)) +
       scale_fill_manual(values = pal_agencysex, name = NULL) + 
@@ -405,7 +411,7 @@ library(ICPIutilities)
     v_trends + v_agesex  +
       plot_annotation(caption = "Vertical line denotes agency VL total in FY20
                     Site transitions have been accounted for in data preparation
-                    Source: DATIM API [2020-05-19]") &
+                    Source: DATIM API [2020-06-17]") &
       theme(plot.caption = element_text(family = "Source Sans Pro", color = "gray30"))
     
     filename <- paste0("Partner_", ind, ".png")
