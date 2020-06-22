@@ -19,6 +19,7 @@ library(glamr)
 
 # GLOBALS -----------------------------------------------------------------
 
+datim_in <- "/Users/tim/Documents/DATIM_DATA"
 data_in <- "Data"
 data_out <- "Dataout"
 viz_out <- "Images"
@@ -46,7 +47,7 @@ bar_spark <- function(ind) {
 } 
 
 
-ind_list <-  c("HTS_TST_POS", "TX_CURR", "TB_PREV", "TX_NET_NEW")
+ind_list <-  c("HTS_TST_POS", "TX_CURR", "TB_PREV", "TX_NEW")
 
 sum_indic <- function(df) {
   df %>% 
@@ -60,7 +61,7 @@ sum_indic <- function(df) {
 # LOAD AND MUNG -----------------------------------------------------------
 
 # Load most recent MSD
-df <- read_msd(file.path(here(data_in, "MER_Structured_Datasets_OU_IM_FY18-20_20200605_v1_1.txt")))
+df <- read_rds(here(data_in, "MER_Structured_Datasets_OU_IM_FY18-20_20200605_v1_1.rds"))
 
 df_pepfar <- 
   df %>% 
@@ -117,3 +118,58 @@ bar_spark(ind ="TX_CURR")
 #output for each ind
 unique(df_long$indicator) %>% 
   walk(bar_spark)
+
+
+
+# PREVENTION INDICATORS ---------------------------------------------------
+
+  indic_list <- c("KP_PREV", "VMMC_CIRC", "OVC_SERV", "PrEP_NEW", "PP_PREV")
+
+ prev_pepfar <-  
+   df %>% 
+  filter(indicator %in% indic_list,
+    disaggregate == "Total Numerator",
+    fiscal_year == 2020) %>% 
+    sum_indic() %>% 
+   rename(PEPFAR = val)
+ 
+ prev_usaid <-  
+   df %>% 
+   filter(fundingagency == "USAID",
+     indicator %in% indic_list,
+     disaggregate == "Total Numerator",
+     fiscal_year == 2020) %>% 
+   sum_indic()  %>% 
+   rename(USAID = val)
+ 
+ df_long <- 
+   left_join(prev_usaid, prev_pepfar) %>% 
+   mutate(share = USAID / PEPFAR,
+     target = 1) %>% 
+   pivot_longer(cols = USAID:PEPFAR,
+     names_to = "Agency",
+     values_to = "Value")
+  
+
+ bar_spark(ind ="KP_PREV")
+ 
+ #output for each ind
+ unique(df_long$indicator) %>% 
+   walk(bar_spark)
+ 
+ 
+# Check TX_CURR for KPs    
+ 
+ df %>% filter(indicator == "TX_CURR",
+   fiscal_year == 2020,
+   disaggregate == "KeyPop/HIVStatus") %>% 
+   sum_indic()
+ 
+ df %>% filter(indicator == "TX_CURR",
+   fundingagency == "USAID",
+   fiscal_year == 2020,
+   disaggregate == "KeyPop/HIVStatus") %>% 
+   sum_indic()
+ 
+
+    
