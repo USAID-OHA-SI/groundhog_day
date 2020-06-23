@@ -219,8 +219,8 @@
              measure %in% c("Domestic travel restrictions",
                             "Partial lockdown", "Full lockdown",
                             "Checkpoints within the country",
-                            "Curfews"
-             )) %>% 
+                            "Curfews"),
+             log_type == "Introduction / extension of measures") %>% 
       select(iso, date = date_implemented, 
              restrict_cat = category, 
              restrict_measure = measure) 
@@ -259,7 +259,7 @@
       facet_wrap(~countryname, nrow = 3) +
       labs(x = NULL, y = NULL,
            title = "COVID TRENDS IN LARGEST TREATMENT PEPFAR COUNTRIES",
-           subtitle = "cumulative confirmed cases, log scale, and travel restrictions",
+           subtitle = "cumulative confirmed cases, log scale, and introduction of travel restrictions",
            caption = 
            "travel restrictions include: lockdowns (full/partial), domestic travel restrictions/checkpoints and curfews
            source: JHU + HDX COVID-19 government measures") +
