@@ -1,9 +1,9 @@
 ##  PROJECT: Q2 Review target analysis
-##  AUTHOR:  B.Kagniniwa | USAID
+##  AUTHOR:  B.Kagniniwa & G.Sarfaty | USAID
 ##  PURPOSE: Geo-depiction of TX_ML [% of patients transferring out]
 ##  LICENCE: MIT
 ##  DATE:    2020-06-22
-##  UPDATE:
+##  UPDATE:  2020-06-24
 
 # Dependancies----------------------------------------------------------
 
@@ -51,14 +51,20 @@ glamr::folder_setup()
   #' @param fy fiscal year
   #' @param snu_prio snuprioritization
   #' 
-  extract_tx_ml <- function(.data, fy = "2020", snu_prio = NULL) {
+  extract_tx_ml <- function(.data, fy = "2020", snu_prio = NULL, mechs = NULL) {
     
     ## For ZAF Only
     if (!is.null(snu_prio)) {
       .data %>%
-        filter(snuprioritization %in% psnu)
+        filter(snuprioritization %in% snu_prio)
     }
     
+    if (!is.null(mechs)) {
+      .data %>% 
+        filter(mech_code %in% mechs)
+    }
+    
+    ## Common Munging
     .data %>%
       filter(
         fiscal_year == {{fy}},
@@ -84,6 +90,8 @@ glamr::folder_setup()
       dplyr::select(operatingunit, snu1, snu1uid, psnuuid, psnu, otherdisagg, qtr1, qtr2, prct_ch, cumulative) %>%
       group_by(operatingunit, snu1uid, snu1, psnuuid, psnu) %>%
       dplyr::mutate(
+        ml_ttl = sum(cumulative, na.rm = T),
+        to_ttl = first(cumulative),
         to_cum = round(first(cumulative) / sum(cumulative, na.rm = T) * 100, 2),
         prct = round( cumulative / sum(cumulative, na.rm = T) * 100, 2)
       ) %>%
@@ -97,21 +105,29 @@ glamr::folder_setup()
   #' 
   plot_tx_ml <- function(df, org_level="psnu") {
     
+    xlabel <- df %>% 
+      mutate(
+        name = !!sym(org_level),
+        label = paste0(!!sym(org_level), " (", to_ttl, "/", ml_ttl, ")")
+      ) 
+    
     viz <- df %>%
-      mutate(orgunit = paste0(!!sym(org_level), " (", as.character(round(to_cum)), ")")) %>%
-      ggplot(aes(reorder(orgunit, to_cum), prct, fill = otherdisagg)) +
+      mutate(label = paste0(!!sym(org_level), " (", to_ttl, "/", ml_ttl, ")")) %>% 
+      ggplot(aes(reorder(label, to_cum), prct, fill = otherdisagg)) +
       geom_col(position = position_fill(reverse = TRUE)) +
       geom_hline(yintercept = .25, color = grey10k, lwd = .3) +
       geom_hline(yintercept = .50, color = grey10k, lwd = .3) +
       geom_hline(yintercept = .75, color = grey10k, lwd = .3) +
       scale_fill_brewer(palette = "Set3", direction = -1) +
       scale_y_continuous(position = "right", labels = percent) +
+      #scale_x_discrete(labels = function(x) xlabel$label[xlabel$name == x]) +
       coord_flip() +
-      labs(x="", y="") +
+      labs(x="", y="", subtitle = paste0(toupper(org_level), " (TO / ML)")) +
       theme_minimal() +
       theme(
         legend.position = "bottom",
-        legend.title = element_blank()
+        legend.title = element_blank(),
+        panel.grid.major.y = element_blank()
       )
     
     print(viz)
@@ -211,6 +227,23 @@ glamr::folder_setup()
   ggsave(here(dir_graphics, "ZIMBABWE_TX_ML_x_PSNU.png"),
          scale = 1.2, dpi = 310, width = 10, height = 7, units = "in")
   
+  ## Nigeria
+  df_nga <- df_tx_ml %>%
+    filter(operatingunit == "Nigeria")
+  
+  plot_tx_ml(df_nga)
+  map_tx_ml(df_nga, gis_4_sfc$Nigeria %>% mutate(uid = orgunit_in))
+  
+  viz_zim <- viz_tx_ml(
+    cntry_plot = plot_tx_ml(df_nga),
+    cntry_map = map_tx_ml(df_nga, gis_4_sfc$Nigeria %>% mutate(uid = orgunit_in)),
+    title = "NIGERIA - Distribution of TX_ML by PSNU",
+    caption = "HQ Q2 Review"
+  )
+  
+  ggsave(here(dir_graphics, "NIGERIA_TX_ML_x_PSNU.png"),
+         scale = 1.2, dpi = 310, width = 10, height = 7, units = "in")
+  
   ## Tanzania + additional filter
   
   df_tza <- df_tx_ml %>%
@@ -221,6 +254,8 @@ glamr::folder_setup()
     dplyr::select(-prct_ch) %>%
     group_by(snu1, snu1uid) %>%
     dplyr::mutate(
+      ml_ttl = sum(cumulative, na.rm = T),
+      to_ttl = first(cumulative),
       to_cum = round(first(cumulative) / sum(cumulative, na.rm = T) * 100, 2),
       prct = round( cumulative / sum(cumulative, na.rm = T) * 100, 2)
     ) %>%
@@ -242,7 +277,10 @@ glamr::folder_setup()
   ## South Africa
   
   df_zaf <- df_psnu %>%
-    extract_tx_ml(snu_prio = c("2 - Scale-Up: Aggressive", "1 - Scale-Up: Saturation")) %>%
+    extract_tx_ml(
+      snu_prio = c("2 - Scale-Up: Aggressive", "1 - Scale-Up: Saturation"),
+      mechs = c("70310", "70287","70289","70290","70301")
+    ) %>%
     filter(operatingunit == "South Africa")
   
   df_zaf <- df_zaf %>%
