@@ -3,7 +3,7 @@
 ## PURPOSE: HFR and COVID Trends
 ## LICENSE: MIT
 ## DATE:    2020-06-20
-## UPDATED: 2020-06-22
+## UPDATED: 2020-06-24
 
 # DEPENDENCIES ------------------------------------------------------------
 
@@ -17,6 +17,7 @@
   library(ISOcodes)
   library(Wavelength)
   library(jsonlite)
+  library(patchwork)
 
 
 # GLOBAL VARIABLES --------------------------------------------------------
@@ -32,8 +33,14 @@
                     ox_start, ox_end, sep = "/")
     rm(ox_end, ox_start)
 
+  #quarter starts
+    qtrs <- as_date(c("2019-10-01", "2020-01-01", "2020-04-01", "2020-07-01", "2020-09-30"))
+    
   #review slide background
     bckgrnd <- "#cfcdc9"
+    
+  #FT color scale
+    
     
 # IMPORT DATA -------------------------------------------------------------
 
@@ -131,9 +138,43 @@
       spread(variable, value) %>% 
       select(-contains("legacy"))
     
+  #add colors from FT - https://ig.ft.com/coronavirus-lockdowns/)
+    df_stringency <- df_stringency %>% 
+      mutate(bins = case_when(is.na(stringency)  ~ "NA",
+                              stringency < 1     ~ "<1",
+                              stringency < 25    ~ "1-24",
+                              stringency < 50    ~ "25-49",
+                              stringency < 75    ~ "50-74",
+                              stringency < 85    ~ "75-84",
+                              TRUE               ~ "85-100"),
+             color = case_when(is.na(stringency) ~ "#D9CDC3",
+                               stringency < 1    ~ "#D3E8F0",
+                               stringency < 25   ~ "#FAE1AF",
+                               stringency < 50   ~ "#FDAC7A",
+                               stringency < 75   ~ "#F6736B",
+                               stringency < 85   ~ "#DA3C6A",
+                               TRUE              ~ "#A90773"
+                               ))
+    
   #filter to PEPFAR countries
     df_stringency <- df_stringency %>% 
       filter(iso %in% iso_map$iso)
+    
+  #add country name
+    df_stringency <- df_stringency %>% 
+      left_join(iso_map) %>% 
+      rename(countryname = operatingunit) %>% 
+      select(-regional)
+    
+  #order colors
+    df_stringency <- df_stringency %>% 
+      mutate(bins = factor(bins, c("NA","<1", "1-24", "25-49", "50-74", "75-84", "85-100")),
+             color = factor(color, c("#D9CDC3", "#D3E8F0","#FAE1AF", "#FDAC7A", "#F6736B", "#DA3C6A", "#A90773")))
+    
+  #order vars
+    df_stringency <- df_stringency %>% 
+      select(date, countryname, iso, everything())
+    
     
     rm(json)
     
@@ -146,8 +187,6 @@
   df <- tibble(date = fy20_dates) %>% 
     mutate(value = ifelse(date < "2020-04-01", 1, 0),
            post_who = date > covid)
-    
-  qtrs <- as_date(c("2019-10-01", "2020-01-01", "2020-04-01", "2020-07-01", "2020-09-30"))
   
   df %>% 
     ggplot(aes(date, value, fill = post_who)) +
@@ -272,4 +311,36 @@
     ggsave("covid_casesandrestrictions.png", path = "Images", dpi = 330,
            width = 7.10, height = 4.15)
     
+
+# STRINGENCY INDEX --------------------------------------------------------
+
+    df_stringency <- df_tx %>% 
+      select(iso, targets) %>% 
+      left_join(df_stringency)
+    
+    df_stringency <- df_stringency %>% 
+      mutate(countryname = recode(countryname, "Democratic Republic of the Congo" = "DRC"))
+    
+    df_stringency %>% 
+      ggplot(aes(date, fct_reorder(countryname, targets), fill = color)) +
+      geom_tile(color = "white") +
+      geom_vline(xintercept = qtrs,  color = "gray20", size = 1.2) +
+      scale_fill_identity(guide = "legend", labels = rep("", 7)) +
+      scale_x_date(expand = c(0.005, 0.005), position = "top") +
+      scale_y_discrete(expand = c(.005, .005)) +
+      labs(x = NULL, y = NULL,
+           caption = "source: stringecy index from Blavatnik School of Government at Oxford University
+           color scheme developed by Financial Times") + 
+      si_style_nolines() +
+      guides(fill = guide_legend(title = "stringency index",
+                                 nrow = 1)) +
+      theme(legend.spacing.x = unit(0, 'cm'),
+            legend.title = element_text(color = "gray30", family = "Source Sans Pro"),
+            legend.position = "none",
+            axis.text.y = element_text(size = 7),
+            plot.background = element_rect(fill = bckgrnd, color = bckgrnd)
+            )
+    
+    ggsave("stringency_index.png", path = "Images", dpi = 330,
+           width = 7.10, height = 4.15)
     
