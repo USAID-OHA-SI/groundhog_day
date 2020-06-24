@@ -1,6 +1,7 @@
 .Rproj.user
 .Rhistory
 .RData
+.DS_Store
 .Ruserdata
 
 *.xlsx
@@ -12,4 +13,5 @@
 *Data
 *Dataout
 *Images
+*Graphics
 *GIS
