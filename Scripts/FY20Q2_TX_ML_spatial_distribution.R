@@ -105,12 +105,6 @@ glamr::folder_setup()
   #' 
   plot_tx_ml <- function(df, org_level="psnu") {
     
-    xlabel <- df %>% 
-      mutate(
-        name = !!sym(org_level),
-        label = paste0(!!sym(org_level), " (", to_ttl, "/", ml_ttl, ")")
-      ) 
-    
     viz <- df %>%
       mutate(label = paste0(!!sym(org_level), " (", to_ttl, "/", ml_ttl, ")")) %>% 
       ggplot(aes(reorder(label, to_cum), prct, fill = otherdisagg)) +
@@ -120,7 +114,6 @@ glamr::folder_setup()
       geom_hline(yintercept = .75, color = grey10k, lwd = .3) +
       scale_fill_brewer(palette = "Set3", direction = -1) +
       scale_y_continuous(position = "right", labels = percent) +
-      #scale_x_discrete(labels = function(x) xlabel$label[xlabel$name == x]) +
       coord_flip() +
       labs(x="", y="", subtitle = paste0(toupper(org_level), " (TO / ML)")) +
       theme_minimal() +
