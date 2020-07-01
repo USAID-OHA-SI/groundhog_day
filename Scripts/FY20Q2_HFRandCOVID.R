@@ -234,7 +234,7 @@
       group_by(countryname) %>% 
       mutate(lab = case_when(date == max(date) ~ iso)) %>% 
       ungroup()
-      
+    
     df_covid_pepfar %>% 
       mutate(cases = na_if(cases, 0)) %>% 
       ggplot(aes(days_since_ten_case,cases, group = countryname)) +
@@ -277,7 +277,9 @@
       left_join(df_restrictions) %>% 
       mutate(restriction_date = case_when(!is.na(restrict_measure) ~ as_date(date)),
              date = as_date(date),
-             point = case_when(date == max(date) ~ cases))
+             point = case_when(date == max(date) ~ cases),
+             countryname = recode(countryname, "Democratic Republic of the Congo" = "DRC"))
+    
       
     df_top_trends %>% 
       ggplot(aes(date, cases, group = countryname)) +
@@ -292,7 +294,7 @@
       geom_path(color = USAID_medblue, size = .9, na.rm = TRUE) +
       geom_point(aes(y = point), color = USAID_medblue, na.rm = TRUE) +
       # geom_vline(xintercept = qtrs, color = "gray30") +
-      # scale_x_date(date_breaks = "2 months", date_labels = "%b") +
+      scale_x_date(date_breaks = "1 months", date_labels = "%b") +
       scale_y_log10(label = comma) +
       si_style() +
       facet_wrap(~countryname, nrow = 3) +
