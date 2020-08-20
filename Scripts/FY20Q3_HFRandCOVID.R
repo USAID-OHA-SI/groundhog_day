@@ -25,7 +25,7 @@
 # GLOBAL VARIABLES --------------------------------------------------------
 
   #DATIM Access
-    myuser <- "tessam" #do not store when saving
+    myuser <- "" #do not store when saving
     baseurl <- "https://final.datim.org/"
   
   #Stringency Index API url - start/end date 
