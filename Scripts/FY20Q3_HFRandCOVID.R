@@ -3,7 +3,7 @@
 ## PURPOSE: HFR and COVID Trends
 ## LICENSE: MIT
 ## DATE:    2020-06-20
-## UPDATED: 2020-06-24
+## UPDATED: 2020-08-21
 
 # DEPENDENCIES ------------------------------------------------------------
 
