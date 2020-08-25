@@ -3,11 +3,11 @@
 ## PURPOSE: HFR and COVID Trends
 ## LICENSE: MIT
 ## DATE:    2020-06-20
-## UPDATED: 2020-06-24
+## UPDATED: 2020-08-21
 
 # DEPENDENCIES ------------------------------------------------------------
 
-  library(tidyverse)
+
   library(COVIDutilities)
   library(lubridate)
   library(scales)
@@ -18,6 +18,8 @@
   library(Wavelength)
   library(jsonlite)
   library(patchwork)
+  library(tidyverse)
+  library(ggrepel)
 
 
 # GLOBAL VARIABLES --------------------------------------------------------
@@ -185,7 +187,7 @@
   fy20_dates <- seq.Date(as_date("2019-10-01"), as_date("2020-09-30"), length.out = 365)
   
   df <- tibble(date = fy20_dates) %>% 
-    mutate(value = ifelse(date < "2020-04-01", 1, 0),
+    mutate(value = ifelse(date < "2020-07-01", 1, 0),
            post_who = date > covid)
   
   df %>% 
@@ -240,7 +242,7 @@
       ggplot(aes(days_since_ten_case,cases, group = countryname)) +
       geom_path(color = "gray50", na.rm = TRUE) +
       geom_path(data = df_covid_pepfar_top, color = USAID_medblue, size = .9, na.rm = TRUE) +
-      geom_label(data = df_covid_pepfar_top, aes(label = lab), nudge_x = 2,
+      geom_label_repel(data = df_covid_pepfar_top, aes(label = lab), nudge_x = 2,
                 color = USAID_medblue, family = "Source Sans Pro", fontface = "bold",
                 na.rm = TRUE) +
       scale_y_log10(label = comma) +
@@ -250,6 +252,8 @@
            subtitle = "cumulative confirmed cases, log scale",
            caption = "source: JHU")
     
+    ggsave("covid_cases_Q3.png", path = "Images", dpi = 330,
+           width = 7.10, height = 4.15)
     
     
     df_restrictions <- df_gov_measures %>% 
@@ -310,7 +314,7 @@
             )
     
     
-    ggsave("covid_casesandrestrictions.png", path = "Images", dpi = 330,
+    ggsave("covid_casesandrestrictions_Q3.png", path = "Images", dpi = 330,
            width = 7.10, height = 4.15)
     
 
@@ -343,6 +347,6 @@
             plot.background = element_rect(fill = bckgrnd, color = bckgrnd)
             )
     
-    ggsave("stringency_index.png", path = "Images", dpi = 330,
+    ggsave("stringency_index_Q3.png", path = "Images", dpi = 330,
            width = 7.10, height = 4.15)
     

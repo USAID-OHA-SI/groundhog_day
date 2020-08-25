@@ -103,7 +103,7 @@ glamr::folder_setup()
   #' @param df Summarized country level TX_ML Data
   #' @param org_level snu1 or psnu
   #' 
-  plot_tx_ml <- function(df, org_level="psnu") {
+  plot_tx_ml <- function(df, org_level="psnu", fcolor = NULL) {
     
     viz <- df %>%
       mutate(label = paste0(!!sym(org_level), " (", to_ttl, "/", ml_ttl, ")")) %>% 
@@ -111,8 +111,17 @@ glamr::folder_setup()
       geom_col(position = position_fill(reverse = TRUE)) +
       geom_hline(yintercept = .25, color = grey10k, lwd = .3) +
       geom_hline(yintercept = .50, color = grey10k, lwd = .3) +
-      geom_hline(yintercept = .75, color = grey10k, lwd = .3) +
-      scale_fill_brewer(palette = "Set3", direction = -1) +
+      geom_hline(yintercept = .75, color = grey10k, lwd = .3)
+    
+    if (is.null(fcolor)) {
+      viz <- viz +
+        scale_fill_brewer(palette = "Set3", direction = -1)
+    } else {
+      viz <- viz +
+        scale_fill_manual(values = fcolor)
+    }
+    
+    viz <- viz  +
       scale_y_continuous(position = "right", labels = percent) +
       coord_flip() +
       labs(x="", y="", subtitle = paste0(toupper(org_level), " (TO / ML)")) +
@@ -146,7 +155,7 @@ glamr::folder_setup()
       geom_sf(data = sf_shp, fill = NA, color = grey40k) +
       geom_sf_text(size = 1.5, color = grey60k) +
       scale_fill_viridis_c(direction = -1, na.value = NA) +
-      facet_wrap(~otherdisagg) +
+      facet_wrap(~otherdisagg, ncol = 2) +
       theme_void() +
       theme(
         legend.position = 'bottom',
@@ -276,13 +285,70 @@ glamr::folder_setup()
     ) %>%
     filter(operatingunit == "South Africa")
   
+  df_zaf <- df_psnu %>% 
+    filter(
+      fiscal_year == "2020",
+      indicator == "TX_ML",
+      standardizeddisaggregate == "Age/Sex/ARTNoContactReason/HIVStatus",
+      typemilitary == 'N',
+      fundingagency == "USAID",
+      snuprioritization %in% c("2 - Scale-Up: Aggressive", "1 - Scale-Up: Saturation"),
+      mech_code %in% c("70310", "70287","70289","70290","70301"),
+      operatingunit == 'South Africa'
+    ) %>%
+    group_by(psnu, psnuuid, indicator, otherdisaggregate) %>%
+    summarize_at(vars(targets:cumulative), sum, na.rm=TRUE) %>%
+    ungroup() %>%
+    mutate(
+      otherdisaggregate = str_remove(otherdisaggregate, "No Contact Outcome - "),
+      otherdisagg = ifelse(str_detect(otherdisaggregate, "Lost to Follow-Up"), "Lost to Follow-Up", otherdisaggregate),
+      otherdisagg = ifelse(str_detect(otherdisagg, "Refused"), "Refused or Stopped", otherdisagg),
+      otherdisagg = ordered(otherdisagg,
+                           levels = c("Transferred Out", "Lost to Follow-Up", "Died"),
+                           labels = c("TO", "LTFU", "Died")),
+      prct_ch = round(((qtr2 - qtr1) - qtr1) / qtr1 * 100, 2)
+    ) %>% 
+    dplyr::select(operatingunit, snu1, snu1uid, psnuuid, psnu, otherdisagg, qtr1, qtr2, prct_ch, cumulative) %>%
+    group_by(psnuuid, psnu) %>%
+    dplyr::mutate(
+      ml_ttl = sum(cumulative, na.rm = T),
+      to_ttl = first(cumulative),
+      to_cum = round(first(cumulative) / sum(cumulative, na.rm = T) * 100, 2),
+      prct = round( cumulative / sum(cumulative, na.rm = T) * 100, 2)
+    ) %>%
+    ungroup()
+  
+  df_zaf %>% 
+    distinct(otherdisagg) %>% 
+    pull()
+  
   df_zaf <- df_zaf %>%
     mutate(
       psnu = str_replace(psnu, " Metropolitan Municipality| District Municipality| Bay Municipality", ""),
       psnu = str_replace(psnu, "^.{3}", "")
     )
   
-  plot_tx_ml(df_zaf)
+  
+  plot_tx_ml(df_zaf, fcolor = c("#fb8072", "#bebada", "#8dd3c7"))
+  
+  df_zaf %>% 
+    mutate(label = paste0(psnu, " (", to_ttl, "/", ml_ttl, ")")) %>% 
+    ggplot(aes(reorder(label, to_cum), prct, fill = otherdisagg)) +
+    geom_col(position = position_fill(reverse = T)) +
+    geom_hline(yintercept = .25, color = grey10k, lwd = .3) +
+    geom_hline(yintercept = .50, color = grey10k, lwd = .3) +
+    geom_hline(yintercept = .75, color = grey10k, lwd = .3) +
+    scale_fill_manual(values = c("#fb8072", "#bebada", "#8dd3c7")) +
+    scale_y_continuous(position = "right", labels = percent) +
+    coord_flip() +
+    labs(x="", y="", subtitle = paste0(toupper("psnu"), " (TO / ML)")) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      panel.grid.major.y = element_blank()
+    )
+  
   map_tx_ml(df_zaf, gis_5_sfc$SouthAfrica)
   
   viz_zaf <- viz_tx_ml(
