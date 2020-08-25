@@ -35,8 +35,6 @@ dir_terr <- "../../GEODATA/RASTER"
 dir_merdata <- "../../MERDATA"
 
 
-
-
 # MER Data
 file_psnu_im <- (list.files(path = dir_merdata,
                             #pattern = "Structured",
@@ -86,12 +84,14 @@ df_VL <- df %>%
 
 
 df_VL <- df_VL %>% 
-  group_by(operatingunit,psnuuid,psnu) %>% 
+  group_by(operatingunit, psnuuid, psnu) %>% 
   mutate(VLC = TX_PVLS_D / lag(TX_CURR, 2, order_by = period),
          ou_lab = paste0(operatingunit, " (", lag(TX_CURR, 2, order_by = period) %>% comma(), ")")) %>% 
   ungroup() %>% 
-  mutate(VLS = (TX_PVLS/TX_PVLS_D)*VLC,
-         Not_Cov=abs(1-VLS-VLC))
+  mutate(
+    VLS = (TX_PVLS / TX_PVLS_D) * VLC, 
+    Not_Cov = abs(1 - VLS)
+  )
   
 
 # GEO Data Joins
@@ -107,16 +107,15 @@ ngageo <- st_as_sf(gis_4_sfc$Nigeria) %>%
 
 # VIZ
 
-mozgeo %>% 
-  st_set_geometry(NULL) %>% 
-  View()
-
 moz_map <- terrain_map(countries = "Mozambique", terr_path = dir_terr, mask = TRUE) +
   geom_sf(data = mozgeo %>% filter(!is.na(Not_Cov)), aes(fill = Not_Cov), lwd = .2, color = grey10k) +
   geom_sf(data = moz1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
     high = "brown", 
+    breaks = c(0, .25, .50, .75, 1.00),
+    limits = c(0, 1.00),
+    #na.value = NA,
     labels = percent_format(accuracy = 1)
   )+
   si_style_map() +
@@ -132,15 +131,17 @@ zim_map <- terrain_map(countries = "Zimbabwe", terr_path = dir_terr, mask = TRUE
   geom_sf(data = zim1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
-    high = "brown", 
+    high = "brown",
+    breaks = c(0, .25, .50, .75, 1.00),
+    limits = c(0, 1.00),
     labels = percent
   ) +
   si_style_map() +
   theme(
     legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(1.5, "cm"),
-    legend.key.height = ggplot2::unit(1, "cm")
+    legend.key.width = ggplot2::unit(1, "cm"),
+    legend.key.height = ggplot2::unit(.5, "cm")
   )
   
 
@@ -150,14 +151,16 @@ nga_map <- terrain_map(countries = "Nigeria", terr_path = dir_terr, mask = TRUE)
   scale_fill_gradient2(
     low = "yellow",
     high = "brown", 
+    breaks = c(0, .25, .50, .75, 1.00),
+    limits = c(0, 1.00),
     labels = percent
   ) +
   si_style_map() +
   theme(
     legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(1.5, "cm"),
-    legend.key.height = ggplot2::unit(1, "cm")
+    legend.key.width = ggplot2::unit(1, "cm"),
+    legend.key.height = ggplot2::unit(.5, "cm")
   )
 
 moz_map + {
