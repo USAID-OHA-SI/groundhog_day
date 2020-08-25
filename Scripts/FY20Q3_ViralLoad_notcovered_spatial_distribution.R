@@ -76,7 +76,7 @@ df_VL<-df_VL %>%
          ou_lab = paste0(operatingunit, " (", lag(TX_CURR, 2, order_by = period) %>% comma(), ")")) %>% 
   ungroup() %>% 
   mutate(VLS = (TX_PVLS/TX_PVLS_D)*VLC,
-         Not_Cov=abs(1-VLS-VLC))
+         Not_Cov=abs(1-VLS))
   
 
 # GEO Data Joins
@@ -113,10 +113,10 @@ zim_map<-terrain_map(countries = "Zimbabwe", terr_path = dir_terr, mask = TRUE) 
     high = "brown", labels=percent)+
   si_style_map() +
   theme(
-    legend.position =  "right",
+    legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(.5, "cm"),
-    legend.key.height = ggplot2::unit(1, "cm")
+    legend.key.width = ggplot2::unit(.7, "cm"),
+    legend.key.height = ggplot2::unit(.5, "cm")
   )
   
 
@@ -128,10 +128,10 @@ nga_map<-terrain_map(countries = "Nigeria", terr_path = dir_terr, mask = TRUE) +
     high = "brown", labels=percent)+
   si_style_map() +
   theme(
-    legend.position =  "right",
+    legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(.5, "cm"),
-    legend.key.height = ggplot2::unit(1, "cm")
+    legend.key.width = ggplot2::unit(.7, "cm"),
+    legend.key.height = ggplot2::unit(.5, "cm")
   )
 
 moz_map + {
