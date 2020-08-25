@@ -4,7 +4,6 @@
 ##  LICENCE: MIT
 ##  DATE:    2020-08-25
 
-
 # Libraries
 library(tidyverse)
 library(ggplot2)
@@ -23,14 +22,30 @@ library(ICPIutilities)
 library(googlesheets4)
 library(extrafont)
 
+# GLOBALS -------------------------------------------------------------
+
+## Data & Output folders
+dir_data <- "Data"
+dir_dataout <- "Dataout"
+dir_gis <- "GIS"
+dir_graphics <- "Graphics"
+dir_geodata <- "../../GEODATA/PEPFAR"
+dir_geo <- "../../GEODATA/PEPFAR"
+dir_terr <- "../../GEODATA/RASTER"
+dir_merdata <- "../../MERDATA"
+
+
+
 
 # MER Data
-file_psnu_im <- (list.files(path =dir_merdata,
-                            pattern = "Structured",
+file_psnu_im <- (list.files(path = dir_merdata,
+                            #pattern = "Structured",
+                            pattern = "*._PSNU_IM_FY18-20_20200814_v1_1.zip$",
                             recursive = TRUE,
                             full.names = TRUE)) 
 
-df<-read_msd(file_psnu_im)
+#df <- read_msd(file_psnu_im)
+df <- vroom::vroom(file_psnu_im)
 
 # GEO Data
 gis_5_sfc <- list.files(dir_geo, pattern = ".*_5_.*.shp$", recursive = T, full.names = T) %>%
@@ -55,7 +70,7 @@ zim1 <- get_adm_boundaries("ZWE", adm_level = 1, geo_path = dir_geo) %>%
 
 
 # MER Data Munge
-df_VL<-df %>% 
+df_VL <- df %>% 
   filter(fiscal_year=="2020",
          fundingagency=="USAID",
          indicator %in% c("TX_PVLS","TX_CURR"),
@@ -70,7 +85,7 @@ df_VL<-df %>%
   spread(indicator, val)
 
 
-df_VL<-df_VL %>% 
+df_VL <- df_VL %>% 
   group_by(operatingunit,psnuuid,psnu) %>% 
   mutate(VLC = TX_PVLS_D / lag(TX_CURR, 2, order_by = period),
          ou_lab = paste0(operatingunit, " (", lag(TX_CURR, 2, order_by = period) %>% comma(), ")")) %>% 
@@ -80,23 +95,30 @@ df_VL<-df_VL %>%
   
 
 # GEO Data Joins
-zimgeo<-st_as_sf(gis_5_sfc$Zimbabwe) %>% 
+zimgeo <- st_as_sf(gis_5_sfc$Zimbabwe) %>% 
   left_join(df_VL, by = c("uid" = "psnuuid"))
 
-mozgeo<-st_as_sf(gis_5_sfc$Mozambique) %>% 
+mozgeo <- st_as_sf(gis_5_sfc$Mozambique) %>% 
   left_join(df_VL, by = c("uid" = "psnuuid"))
 
-ngageo<-st_as_sf(gis_4_sfc$Nigeria) %>% 
-  left_join(df_VL, by = c("uid" = "psnuuid"))
+ngageo <- st_as_sf(gis_4_sfc$Nigeria) %>% 
+  left_join(df_VL, by = c("orgunit_in" = "psnuuid"))
 
 
 # VIZ
-moz_map<- terrain_map(countries = "Mozambique", terr_path = dir_terr, mask = TRUE) +
-  geom_sf(data = mozgeo, aes(fill = Not_Cov), lwd = .2, color = grey10k) +
+
+mozgeo %>% 
+  st_set_geometry(NULL) %>% 
+  View()
+
+moz_map <- terrain_map(countries = "Mozambique", terr_path = dir_terr, mask = TRUE) +
+  geom_sf(data = mozgeo %>% filter(!is.na(Not_Cov)), aes(fill = Not_Cov), lwd = .2, color = grey10k) +
   geom_sf(data = moz1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
-    high = "brown", labels=percent_format(accuracy = 1))+
+    high = "brown", 
+    labels = percent_format(accuracy = 1)
+  )+
   si_style_map() +
   theme(
     legend.position =  c(.9, .2),
@@ -105,32 +127,36 @@ moz_map<- terrain_map(countries = "Mozambique", terr_path = dir_terr, mask = TRU
     legend.key.height = ggplot2::unit(1, "cm")
   )
 
-zim_map<-terrain_map(countries = "Zimbabwe", terr_path = dir_terr, mask = TRUE) +
-  geom_sf(data = zimgeo, aes(fill = Not_Cov), lwd = .2, color = grey10k) +
+zim_map <- terrain_map(countries = "Zimbabwe", terr_path = dir_terr, mask = TRUE) +
+  geom_sf(data = zimgeo %>% filter(!is.na(Not_Cov)), aes(fill = Not_Cov), lwd = .2, color = grey10k) +
   geom_sf(data = zim1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
-    high = "brown", labels=percent)+
+    high = "brown", 
+    labels = percent
+  ) +
   si_style_map() +
   theme(
-    legend.position =  "right",
+    legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(.5, "cm"),
+    legend.key.width = ggplot2::unit(1.5, "cm"),
     legend.key.height = ggplot2::unit(1, "cm")
   )
   
 
-nga_map<-terrain_map(countries = "Nigeria", terr_path = dir_terr, mask = TRUE) +
-  geom_sf(data = ngageo, aes(fill = Not_Cov), lwd = .2, color = grey10k) +
+nga_map <- terrain_map(countries = "Nigeria", terr_path = dir_terr, mask = TRUE) +
+  geom_sf(data = ngageo %>% filter(!is.na(Not_Cov)), aes(fill = Not_Cov), lwd = .2, color = grey10k) +
   geom_sf(data = nga1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
-    high = "brown", labels=percent)+
+    high = "brown", 
+    labels = percent
+  ) +
   si_style_map() +
   theme(
-    legend.position =  "right",
+    legend.position =  "bottom",
     legend.direction = "horizontal",
-    legend.key.width = ggplot2::unit(.5, "cm"),
+    legend.key.width = ggplot2::unit(1.5, "cm"),
     legend.key.height = ggplot2::unit(1, "cm")
   )
 
@@ -143,7 +169,8 @@ moz_map + {
     title = "Viral Load - % Not Covered",
     caption = "Source: FY20Q3i MSD,
 VLC = TX_PVLS / TX_CURR (2 periods prior)
-VLS = TX_PVLS / TX_PVLS_D * VLC")
+VLS = TX_PVLS / TX_PVLS_D * VLC"
+    )
 
 
 

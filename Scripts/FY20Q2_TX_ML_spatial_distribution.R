@@ -20,7 +20,7 @@ library(patchwork)
 
 # SETUP & Make data folders are excluded from git commits
 
-glamr::folder_setup()
+#glamr::folder_setup()
 
 # GLOBALS -------------------------------------------------------------
 
