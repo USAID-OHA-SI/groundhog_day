@@ -88,10 +88,9 @@ df_VL <- df_VL %>%
   mutate(VLC = TX_PVLS_D / lag(TX_CURR, 2, order_by = period),
          ou_lab = paste0(operatingunit, " (", lag(TX_CURR, 2, order_by = period) %>% comma(), ")")) %>% 
   ungroup() %>% 
-  mutate(
-    VLS = (TX_PVLS / TX_PVLS_D) * VLC, 
-    Not_Cov = abs(1 - VLS)
-  )
+  mutate(VLS = (TX_PVLS/TX_PVLS_D)*VLC,
+         Not_Cov=abs(1-VLC)) %>% 
+  filter(period == "FY20Q3") 
   
 
 # GEO Data Joins
@@ -112,9 +111,7 @@ moz_map <- terrain_map(countries = "Mozambique", terr_path = dir_terr, mask = TR
   geom_sf(data = moz1, fill = NA, lwd = .2, color = grey30k) +
   scale_fill_gradient2(
     low = "yellow",
-    high = "brown", 
-    breaks = c(0, .25, .50, .75, 1.00),
-    limits = c(0, 1.00),
+    high = "brown",
     #na.value = NA,
     labels = percent_format(accuracy = 1)
   )+
@@ -132,8 +129,6 @@ zim_map <- terrain_map(countries = "Zimbabwe", terr_path = dir_terr, mask = TRUE
   scale_fill_gradient2(
     low = "yellow",
     high = "brown",
-    breaks = c(0, .25, .50, .75, 1.00),
-    limits = c(0, 1.00),
     labels = percent
   ) +
   si_style_map() +
@@ -163,17 +158,12 @@ nga_map <- terrain_map(countries = "Nigeria", terr_path = dir_terr, mask = TRUE)
     legend.key.height = ggplot2::unit(.5, "cm")
   )
 
-moz_map + {
-  zim_map +
-  nga_map +
-  plot_layout(ncol = 1)
-} +
+(moz_map + zim_map) +
+  plot_layout(widths = c(1,1)) +
   plot_annotation(
-    title = "Viral Load - % Not Covered",
-    caption = "Source: FY20Q3i MSD,
+    caption = "Source: FY20Q3i MSD - USAID Only,
 VLC = TX_PVLS / TX_CURR (2 periods prior)
-VLS = TX_PVLS / TX_PVLS_D * VLC"
-    )
+Not Covered = 1-VLC")
 
 
 
