@@ -41,6 +41,10 @@ library(patchwork)
   
     file_psnu_im <- here(dir_merdata, "MER_Structured_Datasets_PSNU_IM_FY18-20_20200814_v1_1.zip")
     
+  ## Notes
+  
+    footnote <- paste0("USAID/OHA/SIEI - HQ Q3 Data Review, ", Sys.Date())
+    
 # FUNCTIONS -------------------------------------------------------------
 
   ## Stitch the plots together
@@ -163,8 +167,7 @@ library(patchwork)
     spdf %>% 
       distinct(admin) %>% 
       arrange(admin) %>% 
-      pull(admin) %>% 
-      setdiff(countries)
+      pull(admin) 
 
   ## MER PSNUxIM
   
@@ -188,64 +191,113 @@ library(patchwork)
         standardizeddisaggregate %in% c("Total Numerator","Total Denominator")
       ) %>% 
       mutate(indicator = ifelse(numeratordenom == "D", paste0(indicator, "_D"), indicator)) %>% 
-      group_by(fiscal_year, operatingunit, psnuuid, psnu, indicator) %>% 
+      group_by(fiscal_year, operatingunit, indicator) %>% 
       summarise(across(starts_with("qtr"), sum, na.rm = TRUE)) %>% 
       ungroup() %>% 
       reshape_msd(clean = TRUE) %>% 
       select(-period_type) %>% 
       spread(indicator, val) %>% #View(title = "DF")
-      group_by(operatingunit, psnuuid, psnu) %>% 
+      group_by(operatingunit) %>% 
       mutate(
         VLC = TX_PVLS_D / dplyr::lag(TX_CURR, 2, order_by = period),
+        VLC = ifelse(VLC > 1, 0, VLC),
         ou_label = paste0(operatingunit, " (", lag(TX_CURR, 2, order_by = period) %>% comma(), ")")
-      ) %>% View()
+      ) %>% #View()
       ungroup() %>% 
       filter(period == 'FY20Q3') %>% 
       mutate(
         VLS = (TX_PVLS / TX_PVLS_D) * VLC, 
         Not_Cov = ifelse(VLS <= 1, abs(1 - VLS), 0)
       ) %>% 
-      clean_names() %>% View()
+      clean_names() %>% 
+      relocate(ou_label, .after = operatingunit) %>% 
+      select(-period) %>% 
+      gather(key = "metrics", value = "value", -c(operatingunit, ou_label)) 
+    
+    df_vlc %>% 
+      glimpse()
+    
+    df_vlc %>% 
+      filter(!str_detect(operatingunit, "Region")) %>% 
+      distinct(operatingunit) %>% 
+      arrange(operatingunit) %>% 
+      pull() %>% 
+      setdiff(
+        spdf %>% 
+          distinct(admin) %>% 
+          arrange(admin) %>% 
+          pull(admin) 
+      )
+      
+    spdf_vlc <- spdf %>% 
+      left_join(df_vlc, by = c("admin" = "operatingunit"))
     
     
 ## VIZ ---------------------------------------------------------
 
-    ## Nigeria 
-    df_vlc_nga <- df_vlc %>% 
-      mutate(full = 1.0) %>%
-      filter(operatingunit == 'Nigeria')
+  ## Global Maps: VLS, VLC
+    ggplot() +
+      geom_sf(data = spdf, fill = NA, color = grey50k, size = .2) +
+      geom_sf(data = spdf_vlc %>% 
+                filter(!admin %in% c("Ukraine", "South Africa"),
+                       metrics %in% c("vls", "vlc")) %>% 
+                mutate(metrics = str_replace(toupper(metrics), "_", " ")),
+              aes(fill = value), color = grey50k, size = .2) +
+      scale_fill_gradient2(
+        low = "#edf8e9",
+        high = "#006d2c",
+        breaks = c(0, .25, .50, .75, 1.00),
+        limits = c(0, 1.00),
+        labels = percent_format(accuracy = 1)
+      ) +
+      facet_wrap(~metrics, ncol = 1) +
+      labs(
+        title = "VIRAL LOAD - Coverage & Suppression",
+        subtitle = "Note - South Africa & Regional Mission's data is not included.",
+        caption = footnote
+      ) +
+      si_style_map() +
+      theme(
+        legend.direction = "horizontal",
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key.width = unit(1.5, "cm"),
+        plot.title = element_text(face = "bold")
+      )
+           
+    ggsave(here(dir_graphics, "FY20Q3_VLC_VLS_Global_Maps.png"),
+           plot = last_plot(), scale = 1.2, dpi = 310, width = 7, height = 10, units = "in")   
     
-    viz_vlc_nga <- generate_plot(df_vlc_nga, 
-                                 gis_4_sfc$Nigeria %>% mutate(uid = orgunit_in), 
-                                 title = "NIGERIA - VLC Spatial Distribution")
+    ## Global Maps: Not VLC
+    ggplot() +
+      geom_sf(data = spdf, fill = NA, color = grey50k, size = .2) +
+      geom_sf(data = spdf_vlc %>% 
+                filter(!admin %in% c("Ukraine", "South Africa"), metrics == "not_cov") %>% 
+                mutate(metrics = str_replace(toupper(metrics), "_", " ")),
+              aes(fill = value), color = grey50k, size = .2) +
+      scale_fill_gradient2(
+        low = "yellow",
+        high = "brown",
+        breaks = c(0, .25, .50, .75, 1.00),
+        limits = c(0, 1.00),
+        labels = percent_format(accuracy = 1)
+      ) +
+      labs(
+        title = "VIRAL LOAD - Not Covered",
+        subtitle = "Note - South Africa & Regional Missions' data not included.",
+        caption = footnote
+      ) +
+      si_style_map() +
+      theme(
+        legend.direction = "horizontal",
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key.width = unit(1.5, "cm"),
+        plot.title = element_text(face = "bold")
+      )
     
-    ggsave(here(dir_graphics, "NIGERIA_VCL_x_PSNU.png"),
-           scale = 1.2, dpi = 310, width = 10, height = 7, units = "in")
+    ggsave(here(dir_graphics, "FY20Q3_Not_VLC_Global_Maps.png"),
+           plot = last_plot(), scale = 1.2, dpi = 310, width = 10, height = 7, units = "in") 
     
-    ## Moz
-    
-    df_vlc_moz <- df_vlc %>% 
-      mutate(full = 1.0) %>%
-      filter(operatingunit == 'Mozambique')
-    
-    viz_vlc_moz <- generate_plot(df_vlc_moz, 
-                                 gis_5_sfc$Mozambique, 
-                                 layout = "wide",
-                                 title = "MOZAMBIQUE - VLC Spatial Distribution")
-    
-    ggsave(here(dir_graphics, "MOZAMBIQUE_VCL_x_PSNU.png"),
-           scale = 1.2, dpi = 310, width = 10, height = 7, units = "in")
-    
-    
-    ## Zim
-    
-    df_vlc_zim <- df_vlc %>% 
-      mutate(full = 1.0) %>%
-      filter(operatingunit == 'Zimbabwe')
-    
-    viz_vlc_zim <- generate_plot(df_vlc_zim, gis_5_sfc$Zimbabwe, title = "ZIMBABWE - VLC Spatial Distribution")
-    
-    ggsave(here(dir_graphics, "ZIMBABWE_VCL_x_PSNU.png"),
-           scale = 1.2, dpi = 310, width = 10, height = 7, units = "in")
     
     
