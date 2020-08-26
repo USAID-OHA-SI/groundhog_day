@@ -25,8 +25,8 @@ library(patchwork)
 
   ## Creds
   
-    user <- "bkagniniwa"
-    key <- "datim_myuser"
+    user <- ""
+    key <- ""
     
   ## Data & Output folders
   

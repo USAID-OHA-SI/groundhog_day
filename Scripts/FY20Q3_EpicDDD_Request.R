@@ -3,7 +3,7 @@
 ## PURPOSE:  pull TX_CURR data and coordinates
 ## LICENSE:  MIT
 ## DATE:     2020-06-30
-## UPDATED:  2020-07-01
+## UPDATED:  2020-08-26
 
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -26,7 +26,7 @@
     url_agesex <- paste0(baseurl,
                          "api/29/analytics.json?",
                          "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-                         "dimension=pe:2019Q2;2019Q3;2019Q4;2020Q1&",
+                         "dimension=pe:2019Q2;2019Q3;2019Q4;2020Q1;2020Q2&",
                          "dimension=dx:ebCEt4u78PX;Hyvw9VnZ2ch;c03urRVExYe;qkjYvdfOakY&", #TX_CURR (N, *, Age [Agg]/Sex/HIVStatus)
                          "dimension=TWXpUVE2MqL:iM13vdNLWKb;cRAGKdWIDn4&", #Support Type - DSD/TA
                          "dimension=e485zBiR7vG:MnAgKVcL97H;Z8MTaDxRBP6;BURHq262iEL;RV1ZeOr98rI;tIZRQs0FK5P;QOawCj9oLNS;BDPEHrovntA;K9Cw4402aAh;JqZFtdn1sG3;ftAnvKhxRxl;kyKHoWxTzHR;MsbFixtB8mu;bePcXLCq9Ov;dHewx3ia8a6;aIbkjGjUZvE&", #"Age: Cascade Age bands"
@@ -36,7 +36,7 @@
     url_mmd <- paste0(baseurl,
                       "api/29/analytics.json?",
                       "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-                      "dimension=pe:2019Q4;2020Q1&",
+                      "dimension=pe:2019Q4;2020Q1;2020Q2&",
                       "dimension=dx:z3JQrvdUCDM;VgUStUs4PM6;OnDTCTo7wM0&", #TX_CURR * months of ARVs Dispensed
                       "dimension=TWXpUVE2MqL:iM13vdNLWKb;cRAGKdWIDn4&", #Support Type - DSD/TA
                       "dimension=e485zBiR7vG:MnAgKVcL97H;dHewx3ia8a6;aIbkjGjUZvE&", #"Age: Cascade Age bands"
@@ -47,7 +47,7 @@
     url_kp <- paste0(baseurl,
                      "api/29/analytics.json?",
                      "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-                     "dimension=pe:2019Q4;2020Q1&",
+                     "dimension=pe:2019Q4;2020Q1;2020Q2&",
                      "dimension=dx:ScQASwweWXL;rEKqsIDMOgB&", #TX_CURR (N, *, KeyPop/HIVStatus)
                      "dimension=TWXpUVE2MqL:iM13vdNLWKb;cRAGKdWIDn4&", #Support Type - DSD/TA
                      "dimension=VCCs1f22cOR:CKCeNqWcxXe;qY5T9mKjsz5;eiR4kOjT60r;UjruEYjGK4R;pi7naVKPzSM&", #Key Populations v3
@@ -124,8 +124,14 @@
            indicator, indicatortype, disaggregate,
            ageasentered, sex, otherdisaggregate,
            period, value) 
-
   
+
+# EXPORT ------------------------------------------------------------------
+
+  write_csv(df_tx_clean, "Dataout/SBU_Epic_TX_Request_SBU.csv", na = "")
+
+# CHECK -------------------------------------------------------------------
+
   df <- list.files("~/Data", "OU_IM", full.names = TRUE) %>%
     read_rds()
 
@@ -135,7 +141,7 @@
            operatingunit %in% ctry_lst$operatingunit) %>%
     select(-cumulative, -targets) %>% 
     reshape_msd(clean = TRUE) %>% 
-    filter(period %in% c("FY19Q3", "FY19Q4", "FY20Q1", "FY20Q2")) %>% 
+    filter(period %in% c("FY19Q3", "FY19Q4", "FY20Q1", "FY20Q2", "FY20Q3")) %>% 
     count(operatingunit, disaggregate, wt = val, name = "datim")
   
   
