@@ -24,9 +24,7 @@ library(patchwork)
 # GLOBALS -------------------------------------------------------------
 
   ## Creds
-  
-    user <- ""
-    key <- ""
+  source("./_secrets/_credentials.R")
     
   ## Data & Output folders
   
