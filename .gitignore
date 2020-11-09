@@ -10,9 +10,10 @@
 *.png
 *.pptx
 
+*_secrets
 *Data
 *Dataout
 *Images
-*Graphics
+*Graghics
 *GIS
 *_secrets
