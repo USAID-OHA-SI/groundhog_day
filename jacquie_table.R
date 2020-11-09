@@ -3,7 +3,7 @@
 ##  PURPOSE: code to create table of results a la jacquie
 ##  LICENCE: MIT
 ##  DATE:    2020-6-16
-##  UPDATE: 
+##  UPDATE:  2020-11-09
 
 #-------------------------------------------------------
 library(tidyverse)
@@ -17,6 +17,14 @@ data <- "C:/Users/Josh/Documents/data/fy20_q2_v1"
 #read in data------------------------------------------------------
 
 # df <- MSD
+df <- list.files(
+    path = "../../MERDATA",
+    #pattern = "MER_S.*_OU_IM_.*_20200814_.*.zip",
+    pattern = "MER_S.*_PSNU_IM_.*_20200814_.*.zip",
+    full.names = TRUE
+  ) %>% 
+  first() %>% 
+  read_msd()
 
 #globals-----------------------------------------------------------
 
@@ -117,9 +125,9 @@ df_zim %>%
   spread(indicator, val) %>%
   mutate(suppression = TX_PVLS_D/TX_CURR_lag2,
          coverage = TX_PVLS_N/TX_PVLS_D,
-         retention = TX_CURR/(TX_CURR_lag1+TX_NEW),
-         linkage = round(TX_NEW/HTS_TST_POS,2)*100,
-         positivity = round(HTS_TST_POS/HTS_TST, 3)*100) %>%
+         retention = TX_CURR/(TX_CURR_lag1 + TX_NEW),
+         linkage = round(TX_NEW / HTS_TST_POS, 2) * 100,
+         positivity = round(HTS_TST_POS / HTS_TST, 3) * 100) %>%
   ungroup %>% 
   select(-TX_CURR_lag1, -TX_CURR_lag2, -TX_PVLS_N) %>% 
   gather(indicator, val, HTS_TST:positivity) %>%
