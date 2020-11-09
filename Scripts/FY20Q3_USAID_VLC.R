@@ -3,7 +3,7 @@
 ## PURPOSE: identify shortfalls in VLC (VLS)
 ## LICENSE: MIT
 ## DATE:    2020-08-26
-## UPDATED: 
+## UPDATED: 2020-09-30
 
 library(tidyverse)
 library(scales)
@@ -19,7 +19,8 @@ df_vl <- df %>%
   filter(fundingagency == "USAID",
          indicator %in% c("TX_CURR", "TX_PVLS"),
          standardizeddisaggregate %in% c("Total Numerator", "Total Denominator"),
-         !operatingunit %in% c("Ukraine", "South Africa")) %>% 
+         !operatingunit %in% c("Ukraine")
+         ) %>% 
   mutate(indicator = ifelse(numeratordenom == "D", paste0(indicator, "_D"), indicator),
          operatingunit = recode(operatingunit, 
                                 "Western Hemisphere Region" = "WHR",
@@ -59,17 +60,17 @@ df_vl %>%
        # title = "VL COVERAGE AND SUPPRESSION",
        # subtitle = "USAID | FY20Q3",
        caption = "VLC = TX_PVLS / TX_CURR (2 periods prior); VLS = TX_PVLS / TX_PVLS_D * VLC
-       USAID (sans South Africa)
-       Source: FY20Q3i MSD") +
+       USAID only
+       Source: FY20Q3c MSD") +
   si_style_nolines() +
   theme(axis.text.y = element_text(size = 10))
 
 
 
-ggsave("Images/FYQ3_USAID_VLC.png", dpi = 600, width = 9.51, height = 4.21)
+# ggsave("Images/FYQ3_USAID_VLC.png", dpi = 600, width = 9.51, height = 4.21)
 
 
-ggsave("Images/FYQ3_USAID_VLC.pdf", device = cairo_pdf, dpi = 600, width = 9.51, height = 4.21)
+ggsave("Graphics/FYQ3_USAID_VLC.pdf", device = cairo_pdf, dpi = 600, width = 9.51, height = 4.21)
 
 df_vl %>% 
   filter(operatingunit == "DR") %>% 
