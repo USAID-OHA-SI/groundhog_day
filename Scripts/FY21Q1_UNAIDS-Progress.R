@@ -15,6 +15,7 @@ library(googlesheets4)
 library(extrafont)
 library(scales)
 library(tidytext)
+library(svglite)
 
 
 # GLOBAL VARIABLES --------------------------------------------------------
@@ -95,3 +96,5 @@ df_viz %>%
   si_style_xgrid() +
   theme(strip.text.y = element_blank(),
         panel.spacing = unit(.5, "lines"))
+  
+  si_save("Images/UNAIDS_Epi_Progress.svg")
