@@ -40,15 +40,15 @@
     viz <- df %>% 
       filter(indicator == {{ind}}, fundingagency == "USAID") %>% 
       ggplot() + 
-      geom_col(aes(fundingagency, y = 1), fill = trolley_grey_light) +
+      geom_col(aes(y = fundingagency, x = 1), fill = trolley_grey_light) +
       # old color #e04745
-      geom_col(aes(fundingagency, {{share}}), fill = denim) +
-      coord_flip() + 
+      geom_col(aes(y = fundingagency, x = {{share}}), fill = denim) +
       theme_void() +
       theme(legend.position = "none",
             plot.background = element_rect(fill = "white",
                                            color = "white"),
-      )
+      ) +
+      coord_cartesian(expand = F)
     
     ggsave(file.path(graphs, paste0("FY20Q1_sparks", {{ind}}, "_", deparse(substitute(share)), ".png")),
             plot = viz, dpi = 330, width = 1.25, height = 0.1)
@@ -84,7 +84,7 @@
     df %>% 
     filter(
       standardizeddisaggregate == "Total Numerator",
-      indicator %in% c("TX_CURR", "TX_NEW", "HTS_TST_POS", "PrEP_NEW"),
+      indicator %in% c("TX_CURR", "TX_NEW", "HTS_TST_POS", "PrEP_NEW", "VMMC_CIRC"),
       fiscal_year == "2021"
     ) %>% 
     group_by(fundingagency, indicator) %>% 
