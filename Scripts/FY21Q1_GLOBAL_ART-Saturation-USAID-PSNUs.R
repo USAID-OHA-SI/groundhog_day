@@ -17,11 +17,12 @@
   library(ggtext)
   library(glue)
   library(ICPIutilities)
+  library(svglite)
   
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
-  saturation <- .95
+  saturation <- .95*.95
 
 # IMPORT ------------------------------------------------------------------
   
@@ -78,8 +79,62 @@
   
   #create coverage
   df_combo_usaid <- df_combo_usaid %>% 
-    mutate(art_cov = tx_curr_subnat_2021 / plhiv_2021) %>% 
+    mutate(art_cov = tx_curr_subnat_2021 / plhiv_2021,
+           art_cov_capped = ifelse(art_cov > 1.1, 1.11, art_cov)) %>% 
     group_by(operatingunit) %>% 
     mutate(target_share = tx_curr_2021_targets/sum(tx_curr_2021_targets, na.rm = TRUE)) %>% 
     ungroup()
   
+  #overall saturation
+  df_combo_usaid <- df_combo_usaid %>%
+    filter(operatingunit != "DRC") %>% 
+    group_by(operatingunit) %>% 
+    mutate(art_cov_ou = sum(tx_curr_subnat_2021, na.rm = TRUE)/sum(plhiv_2021, na.rm = TRUE),
+           art_cov_ou = ifelse(is.nan(art_cov_ou), NA, art_cov_ou),
+           art_cov_ou_m = case_when(plhiv_2021 == max(plhiv_2021, na.rm = TRUE) ~ art_cov_ou)) %>%
+    ungroup() 
+  
+  #clean up names
+  df_viz <- df_combo_usaid %>% 
+    mutate(operatingunit = case_when(operatingunit == "Democratic Republic of the Congo" ~ "DRC",
+                                     operatingunit =="Dominican Republic" ~ "DR",
+                                     operatingunit == "Western Hemisphere Region" ~ "WHR",
+                                     TRUE ~ operatingunit))
+  
+  
+  #flag
+  df_viz <- df_viz %>% 
+    mutate(flag = case_when(art_cov < saturation ~ moody_blue,
+                            TRUE ~ trolley_grey),
+           flag_plus = case_when(art_cov < saturation & target_share < .15 ~ moody_blue,
+                                 art_cov < saturation & target_share > .15 ~ scooter,
+                                 TRUE ~ trolley_grey),
+           flag_label = case_when(art_cov < saturation & target_share > .15 ~ psnu))
+  
+
+# PLOT --------------------------------------------------------------------
+
+  df_viz %>% 
+    ggplot(aes(art_cov_capped, fct_reorder(operatingunit, art_cov_ou_m, na.rm = TRUE),
+               fill = flag_plus)) +
+    geom_vline(aes(xintercept = saturation), linetype = "dotted", color = trolley_grey) +
+    geom_vline(aes(xintercept = 1.11), color = trolley_grey_light) +
+    geom_errorbar(aes(xmin = art_cov_ou_m, xmax = art_cov_ou_m), size = 1.5, color = trolley_grey) +
+    geom_jitter(aes(size = target_share), height = .3,  shape = 21, alpha = .6, color = "white", na.rm = TRUE) +
+    geom_text(aes(label = flag_label), na.rm = TRUE,
+              family = "Source Sans Pro", color = "#505050", size = 3) +
+    scale_x_continuous(label = percent_format(1), breaks = seq(0, 1.1, by = .2)) +
+    scale_fill_identity() +
+    labs(x = NULL, y = NULL,
+         subtitle = "Estimated ART coverage in USAID supported treament PSNUs",
+         caption = "Estimated ART Coverage = FY21 TX_CURR_SUBNAT / FY21 PLHIV,
+         DRC removed with no PLHIV estimates for FY21
+         Source: FY21Q1i NAT_SUBNAT + MSD") +
+    si_style() +
+    theme(legend.position = "none")
+
+
+# EXPORT ------------------------------------------------------------------
+
+  si_save("Graphics/ART_Coverage.svg")  
+    
