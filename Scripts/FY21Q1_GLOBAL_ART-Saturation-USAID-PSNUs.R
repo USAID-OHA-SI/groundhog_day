@@ -80,7 +80,7 @@
   #create coverage
   df_combo_usaid <- df_combo_usaid %>% 
     mutate(art_cov = tx_curr_subnat_2021 / plhiv_2021,
-           art_cov_capped = ifelse(art_cov > 1.1, 1.11, art_cov)) %>% 
+           art_cov_capped = ifelse(art_cov > 1.2, 1.21, art_cov)) %>% 
     group_by(operatingunit) %>% 
     mutate(target_share = tx_curr_2021_targets/sum(tx_curr_2021_targets, na.rm = TRUE)) %>% 
     ungroup()
@@ -118,12 +118,12 @@
     ggplot(aes(art_cov_capped, fct_reorder(operatingunit, art_cov_ou_m, na.rm = TRUE),
                fill = flag_plus)) +
     geom_vline(aes(xintercept = saturation), linetype = "dotted", color = trolley_grey) +
-    geom_vline(aes(xintercept = 1.11), color = trolley_grey_light) +
+    # geom_vline(aes(xintercept = 1.21), color = trolley_grey_light) +
     geom_errorbar(aes(xmin = art_cov_ou_m, xmax = art_cov_ou_m), size = 1.5, color = trolley_grey) +
     geom_jitter(aes(size = target_share), height = .3,  shape = 21, alpha = .6, color = "white", na.rm = TRUE) +
     geom_text(aes(label = flag_label), na.rm = TRUE,
               family = "Source Sans Pro", color = "#505050", size = 3) +
-    scale_x_continuous(label = percent_format(1), breaks = seq(0, 1.1, by = .2)) +
+    scale_x_continuous(label = percent_format(1), breaks = seq(0, 1.5, by = .2)) +
     scale_fill_identity() +
     labs(x = NULL, y = NULL,
          subtitle = "Estimated ART coverage in USAID supported treament PSNUs",
