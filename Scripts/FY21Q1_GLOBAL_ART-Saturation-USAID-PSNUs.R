@@ -64,9 +64,10 @@
            str_detect(psnu, "_Military", negate = TRUE),
            fiscal_year == 2021) %>%
     group_by(operatingunit, countryname, snu1, psnu, psnuuid) %>% 
-    summarise(across(c(cumulative), sum, na.rm = TRUE)) %>% 
+    summarise(across(c(cumulative, targets), sum, na.rm = TRUE)) %>% 
     ungroup() %>% 
-    rename(tx_curr_2021q1 = cumulative)
+    rename(tx_curr_2021_q1 = cumulative,
+           tx_curr_2021_targets = targets)
   
   #join NAT + MSD data together
   df_combo <- full_join(df_plhiv, df_tx_pepfar)
@@ -77,5 +78,8 @@
   
   #create coverage
   df_combo_usaid <- df_combo_usaid %>% 
-    mutate(art_cov = tx_curr_subnat_2021 / plhiv_2021)
+    mutate(art_cov = tx_curr_subnat_2021 / plhiv_2021) %>% 
+    group_by(operatingunit) %>% 
+    mutate(target_share = tx_curr_2021_targets/sum(tx_curr_2021_targets, na.rm = TRUE)) %>% 
+    ungroup()
   
