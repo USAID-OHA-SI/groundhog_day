@@ -87,7 +87,7 @@
   
   #overall saturation
   df_combo_usaid <- df_combo_usaid %>%
-    filter(operatingunit != "DRC") %>% 
+    filter(operatingunit != "Democratic Republic of the Congo") %>% 
     group_by(operatingunit) %>% 
     mutate(art_cov_ou = sum(tx_curr_subnat_2021, na.rm = TRUE)/sum(plhiv_2021, na.rm = TRUE),
            art_cov_ou = ifelse(is.nan(art_cov_ou), NA, art_cov_ou),
@@ -109,7 +109,7 @@
            flag_plus = case_when(art_cov < saturation & target_share < .15 ~ moody_blue,
                                  art_cov < saturation & target_share > .15 ~ scooter,
                                  TRUE ~ trolley_grey),
-           flag_label = case_when(art_cov < saturation & target_share > .15 ~ psnu))
+           flag_label = case_when(art_cov < saturation & target_share > .2 ~ psnu))
   
 
 # PLOT --------------------------------------------------------------------
@@ -137,4 +137,9 @@
 # EXPORT ------------------------------------------------------------------
 
   si_save("Graphics/ART_Coverage.svg")  
-    
+
+  
+  
+  df_viz %>% 
+    count(art_cov > 1.2)
+  
