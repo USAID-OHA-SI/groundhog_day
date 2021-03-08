@@ -27,7 +27,7 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
 # IMPORT ------------------------------------------------------------------
   
   df <- si_path() %>% 
-    return_latest("OU_IM") %>% 
+    return_latest("OU_IM_FY19-21") %>% 
     read_rds()   
 
   df_cas <- df %>% 
@@ -61,7 +61,7 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
 
 # PLOT --------------------------------------------------------------------
 
-  df_cas %>% 
+  df_cas %>% filter(indicator != "HTS_TST") %>% 
     ggplot(aes(period, cumulative, fill = fundingagency)) +
     geom_col(aes(y = targets), fill = trolley_grey_light, alpha = .8) +
     geom_col() +
@@ -80,6 +80,5 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
           panel.spacing = unit(.5, "lines"),
           strip.placement = "outside")
   
-    
     si_save("Graphics/FY21Q1_Cascade.svg")
            
