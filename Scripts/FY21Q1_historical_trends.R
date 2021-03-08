@@ -92,12 +92,15 @@
   min <- min(msd_hist$achievement[msd_hist$fiscal_year == 2021])
 
   #  Plot each indiactor as a dot plot by time, weighting each dot by target volume  
-  msd_hist %>% 
+  trend_plot <- function(indic) {
+  
+  p <- msd_hist %>% 
     filter(fiscal_year != 2021,
-           targets != 0) %>%
+           targets != 0,
+           indicator == {{indic}}) %>%
     mutate(ou_label = case_when(
              indicator == "HTS_TST" & achievement<= 0.5 ~ operatingunit,
-             indicator == "HTS_TST_POS" & achievement <.4 ~ operatingunit,
+             indicator == "HTS_TST_POS" & achievement <.45 ~ operatingunit,
              indicator == "TX_CURR" & achievement <= 0.5 ~ operatingunit,
              indicator == "TX_NEW" & achievement <= .45 ~ operatingunit, 
              TRUE ~ NA_character_)
@@ -110,24 +113,33 @@
     geom_point(aes(y = achievement, fill = ou_color), 
                shape = 21, color = "white", alpha = 0.75,
                position = position_jitter(w = 0.15, h = 0, seed = 42)) +
-    geom_point(data = msd_hist %>% filter(fiscal_year == 2021),
+    geom_point(data = msd_hist %>% filter(fiscal_year == 2021, indicator == {{indic}}),
                 aes(y = achievement, fill = ou_color), shape = 21, color = "white", alpha = 0.25,
                position = position_jitter(w = 0.15, h = 0, seed = 42)) +
     geom_smooth(aes(weight = cumulative, y = achievement), color = grey80k, se = F) +
     facet_wrap(~indicator, scales = "free_y") +
-    scale_y_continuous(limits  = c(0, 2.5), oob=scales::squish, labels = percent,
+    scale_y_continuous(limits = c(0, 2.5), oob=scales::squish, labels = percent,
                        breaks = c(0.5, 1, 1.5)) +
     si_style_xline() +
     coord_cartesian(clip = "off", expand = T) +
     scale_fill_identity() +
     scale_size(range = c(0, 10)) +
     theme(legend.position = "none") +
-    #ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption)
+    ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption) +
     labs(x = NULL, y = NULL, title = "",
          caption = "Source: MSD FY16-FY21. South Africa excluded.  ")
+    
+    si_save(here(images, paste0("FY21Q1_historical_trends_", {{indic}})), 
+            plot = p,
+            scale = 1.1,
+            width = 10, 
+            height = 5.5, 
+            dpi = 320)
+  }
   
-  si_save(here(images, "FY21Q1_historical_trends.png"), scale = 1.25,
-          width = 10, height = 5.5, dpi = 320)
+
+  list("HTS_TST_POS", "TX_CURR", "TX_NEW") %>% 
+    map(~trend_plot(.x))
   
   ggsave(here(graphs, "FY21Q1_historical_trends.svg"), scale = 1.25,
          width = 10, height = 5.625, dpi = 320)

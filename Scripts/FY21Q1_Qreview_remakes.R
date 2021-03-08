@@ -269,3 +269,11 @@
            width = 10)
 
 
+
+# TB SLIDES ---------------------------------------------------------------
+
+  tb_art <- read_excel(here(data, "% tb art coverag.xlsx"))
+  tb_stat <- read_excel(here(data, "% tb stat covera.xlsx"))  
+  
+    
+    
