@@ -33,6 +33,7 @@
   df_tx <- df %>% 
     filter(indicator == "TX_CURR",
            standardizeddisaggregate == "Total Numerator",
+           !mech_code %in% c("81935", "84562", "84566", "84852"),
            fundingagency == "USAID") %>% 
     rename_official() 
   
@@ -69,7 +70,7 @@
   #filter to FY21 and lump remaining 20% of partners
   df_tx_21 <- df_tx_agg %>% 
     filter(fiscal_year == 2021) %>%
-    mutate(primepartner = fct_lump(primepartner, prop = .03, w = share, other_level = "ALL OTHER")) 
+    mutate(primepartner = fct_lump(primepartner, prop = .02, w = share, other_level = "ALL OTHER")) 
   
   #capture largest partners for trends in next section
   lrg_partners <- df_tx_21 %>%
@@ -92,7 +93,7 @@
   
   #plot
   (v1 <- df_tx_21 %>% 
-      mutate(primepartner = fct_lump(primepartner, prop = .03, w = share)) %>% 
+      mutate(primepartner = fct_lump(primepartner, prop = .02, w = share)) %>% 
       group_by(primepartner) %>% 
       summarise(across(c(cumulative, targets), sum, na.rm = TRUE))  %>% 
       ungroup() %>% 
@@ -112,8 +113,8 @@
       scale_x_continuous(labels = unit_format(.1, unit = "M", scale = 1e-6), expand = c(.005, .005)) +
       scale_fill_manual(values = c(scooter, moody_blue)) +
       labs(x = NULL, y = NULL, 
-           subtitle = "70% of FY21 USAID targets held by 11 partners",
-           caption = "Source: FY21Q1i MSD") +
+           subtitle = "80% of FY21 USAID targets held by 13 partners"
+           ) +
       si_style_xgrid() +
       theme(legend.position = "none",
             axis.text.y = element_markdown(size = 7)))
@@ -153,7 +154,9 @@
    scale_x_discrete(breaks = c("FY19Q1", "FY20Q1", "FY21Q1")) +
    labs(x = NULL, y = NULL,
         subtitle = "Flatline During COVID in FY20",
-        caption = "Source: FY21Q1i MSD") +
+        caption = "Excludes the following TBD mechanism due to double-counted targets: 
+        Eswatini-81935; Malawi-84562; Malawi-54566; South Sudan-84552
+        Source: FY21Q1i MSD") +
    si_style_ygrid() +
    theme(panel.spacing = unit(.1, "lines"),
          strip.placement = "outside",

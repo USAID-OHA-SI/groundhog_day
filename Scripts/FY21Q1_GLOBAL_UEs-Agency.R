@@ -41,7 +41,7 @@ df %>%
   scale_y_reordered() +
   scale_fill_manual(values = c("USAID" = denim, "CDC" = trolley_grey_light)) +
   labs(x = "Unit Expenditure (FY20, $)", y = NULL,
-       caption = "Note: Exclusives mechanisms that do not have associated targets and CDC NDOH mechanism 16772
+       caption = "Note: Excludes mechanisms that do not have associated targets and CDC NDOH mechanism 16772
 Source: FY20Q4c MSD and FSD") +
   si_style_xgrid() +
   theme(legend.position = "none",
