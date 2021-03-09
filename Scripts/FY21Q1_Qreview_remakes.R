@@ -71,12 +71,13 @@
     ungroup() %>% 
     mutate(pct = if_else(rownum == 3, mmd_sum, pct),
            ou_order = reorder_within(ou, pct, duration),
+           duration = if_else(duration == "na", "not reported", duration),
            mmd_order = factor(duration),
            mmd_order = fct_relevel(mmd_order, 
                                  "6+ Month MMD", 
                                  "3+ Month MMD",
                                  "<3 Months (non-MMD)",
-                                 "na"),
+                                 "not reported"),
            ou_color = case_when(
              duration == "6+ Month MMD" & pct >= 0.5 ~ genoa,
              duration == "6+ Month MMD" & pct < 0.5 ~ genoa_light,
@@ -273,7 +274,90 @@
 # TB SLIDES ---------------------------------------------------------------
 
   tb_art <- read_excel(here(data, "% tb art coverag.xlsx"))
-  tb_stat <- read_excel(here(data, "% tb stat covera.xlsx"))  
+
   
+  # No Targets: show the number of countries which fall below the average.
+  tb_art_bar <- 
+    tb_art %>% 
+    rename(ou = indicator) %>% 
+    filter(ou != "Cote d'Ivoire") %>% 
+    mutate(ou_order = fct_reorder(ou, TB_ART),
+           TB_ART_diff = TB_ART - .90,
+           TB_ART_pos = if_else(TB_ART > 0.9, TB_ART - .90, NA_real_),
+           ou_color = if_else(TB_ART_diff < 0, old_rose, trolley_grey),
+           ou_order_statpos = fct_reorder(ou, TB_STAT_POS)) 
+  
+
+  max_art <-  tb_art_bar %>% pull(TB_ART_diff) %>% abs() %>% max()
+  
+    tb_art_bar %>% 
+    ggplot(aes(y = ou_order_statpos)) +
+    geom_col(aes(x = TB_STAT_POS), fill = grey40k) +
+    geom_vline(xintercept = c(1000, 2000, 4000, 6000),
+               color = "white", linetype = "dotted", size = 0.5) +
+      geom_text(aes(x = TB_STAT_POS, label = comma(TB_STAT_POS, 1)),
+                hjust = -0.1,
+                family = "Source Sans Pro",
+                color = color_caption) +
+    si_style_nolines() +
+    coord_cartesian(expand = T, clip = "off") +
+    labs(x = NULL, y = NULL) +
+    geom_point(aes(x = -500, fill = TB_ART_diff), shape = 21, size = 11) +
+    geom_text(aes(x = -500, label = percent(TB_ART, 1)), size = 3) +
+    scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, 'BrBG'),
+                         limits = c(-1 * max_art, max_art)) +
+    theme(legend.position = "none",
+          axis.text.x = element_blank())
     
+    
+    ggsave(here(graphs, "FY21Q1_TB_ART_remake.svg"),
+           width = 5, 
+           height = 5.625,
+           dpi = "retina",
+           scale = 1.15)
+    
+    
+
+    # TB_stat now
+    # No Targets: show the number of countries which fall below the average.
+    tb_stat <- read_excel(here(data, "% tb stat covera.xlsx"))  
+    
+    tb_stat_bar <- 
+      tb_stat %>% 
+      rename(ou = Indicator) %>% 
+      filter(ou != "Cote d'Ivoire") %>% 
+      mutate(ou_order = fct_reorder(ou, TB_STAT),
+             TB_STAT_diff = TB_STAT - .90,
+             TB_STAT_pos = if_else(TB_STAT > 0.9, TB_STAT - .90, NA_real_),
+             ou_color = if_else(TB_STAT_diff < 0, old_rose, trolley_grey),
+             ou_order_statpos = fct_reorder(ou, `TB_STAT Den`)) 
+
+    
+   max_stat <-  tb_stat_bar %>% pull(TB_STAT_diff) %>% abs() %>% max()
+    
+
+    tb_stat_bar %>% 
+      ggplot(aes(y = ou_order_statpos)) +
+      geom_col(aes(x = `TB_STAT Den`), fill = grey40k) +
+      geom_vline(xintercept = c(1000, 3000, 6000, 12000),
+                 color = "white", linetype = "dotted", size = 0.5) +
+      geom_text(aes(x = `TB_STAT Den`, label = comma(`TB_STAT Den`, 1)),
+                hjust = -0.1,
+                family = "Source Sans Pro",
+                color = color_caption) +
+      si_style_nolines() +
+      coord_cartesian(expand = T, clip = "off") +
+      labs(x = NULL, y = NULL) +
+      geom_point(aes(x = -1000, fill = TB_STAT_diff), shape = 21, size = 11) +
+      geom_text(aes(x = -1000, label = percent(TB_STAT, 1)), size = 3) +
+      scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, 'BrBG'),
+                           limits = c(-1 * max_stat, max_stat)) +
+      theme(legend.position = "none",
+            axis.text.x = element_blank())
+    
+    ggsave(here(graphs, "FY21Q1_TB_STAT_remake.svg"),
+           width = 5, 
+           height = 5.625,
+           dpi = "retina", 
+           scale = 1.15)
     
