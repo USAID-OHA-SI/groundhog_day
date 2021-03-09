@@ -54,7 +54,9 @@ df %>%
   scale_x_discrete(expand = c(.05, .05)) + 
   scale_alpha_manual(values = c("FY20" = 1, "FY21" = .6)) +
   labs(x = NULL, y = NULL,
-       title = "SIMS <span style = 'color:#1e87a5;'>Completed</span> Assessments ") +
+       title = "SIMS <span style = 'color:#1e87a5;'>Completed</span> Assessments",
+       caption = "Source: OHA SIMS Tableau dashboard (achievements) and 
+       OUs SIMS Prioritization Lists (planning)") +
   si_style_nolines() +
   theme(legend.position = "none",
         plot.title = element_markdown())
