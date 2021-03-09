@@ -3,7 +3,7 @@
 # PURPOSE:  Cascade trends
 # LICENSE:  MIT
 # DATE:     2021-03-05
-# UPDATED: 
+# UPDATED:  2021-03-09
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -16,7 +16,7 @@
   library(patchwork)
   library(ggtext)
   library(glue)
-library(ICPIutilities)
+  library(ICPIutilities)
   library(svglite)
   
 
@@ -33,12 +33,13 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
   df_cas <- df %>% 
     filter(indicator %in% ind_list,
            standardizeddisaggregate == "Total Numerator",
-           mech_code != "16772",
+           !mech_code %in% c("16772", "81935", "84562", "84566", "84852"),
            fundingagency %in% c("USAID", "HHS/CDC")) %>% 
     group_by(fundingagency, indicator, fiscal_year) %>%
     summarise(across(c(starts_with("qtr"), targets), sum, na.rm = TRUE)) %>% 
     ungroup()
 
+    
   df_cas <- df_cas %>% 
     pivot_longer(starts_with("qtr"),
                  names_to = "qtr",
@@ -61,7 +62,8 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
 
 # PLOT --------------------------------------------------------------------
 
-  df_cas %>% filter(indicator != "HTS_TST") %>% 
+  df_cas %>% 
+    filter(indicator != "HTS_TST") %>% 
     ggplot(aes(period, cumulative, fill = fundingagency)) +
     geom_col(aes(y = targets), fill = trolley_grey_light, alpha = .8) +
     geom_col() +
@@ -73,7 +75,8 @@ ind_list <- c("HTS_TST", "HTS_TST_POS", "TX_NEW", "TX_CURR")
     scale_fill_manual(values = c(denim, scooter)) +
     scale_x_discrete(breaks = c("FY19Q1", "FY20Q1", "FY21Q1")) +
     labs(x = NULL, y = NULL,
-         caption = "Excludes South Africa Dept of Health
+         caption = "Excludes South Africa Dept of Health and 4 TBD mechanisms with double counted
+         targets - 81935 Eswatini, 84566 Malawi, 84562 Malawi, and 84852 South Sudan
          Source: FY21Q1i MSD") +
     si_style_ygrid() +
     theme(legend.position = "none",
