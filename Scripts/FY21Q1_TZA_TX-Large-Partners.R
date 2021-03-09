@@ -3,7 +3,7 @@
 # PURPOSE:  TX partner Trends
 # LICENSE:  MIT
 # DATE:     2021-03-08
-# UPDATED: 
+# UPDATED:  2021-03-09
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -37,8 +37,8 @@
     rename_official() 
   
   #clean up partner names for aggregation and partner share
-  df_tx <- df_tx %>% 
-    mutate(primepartner = ifelse(str_detect(primepartner, "^TBD"), glue("{operatingunit} TBD"), primepartner),
+  df_tx_clean <- df_tx %>% 
+    mutate(primepartner = ifelse(str_detect(primepartner, "^TBD"), glue("{operatingunit} TBD {mech_code}"), primepartner),
            primepartner = case_when(str_detect(tolower(primepartner), "baylor") ~ "Baylor",
                                     str_detect(tolower(primepartner), "intrahealth") ~ "Intrahealth",
                                     str_detect(tolower(primepartner), "population services") ~ "PSI",
@@ -51,22 +51,23 @@
                                     TRUE ~ primepartner),
            primepartner = toupper(primepartner))
   
-  #aggregate and create target share and cumulatieve target share
-  df_tx <- df_tx %>% 
+  #aggregate and create target share and cumulative target share
+  df_tx_agg <- df_tx_clean %>% 
     group_by(fiscal_year, primepartner) %>% 
     summarise(across(where(is.double), sum, na.rm = TRUE))  %>% 
     ungroup() %>% 
     arrange(desc(targets)) %>% 
     group_by(fiscal_year) %>% 
     mutate(share = targets/sum(targets)) %>% 
-    ungroup() %>% 
     arrange(fiscal_year, desc(share)) %>% 
-    mutate(cumshare = cumsum(share))
+    mutate(cumshare = cumsum(share)) %>% 
+    ungroup()
+
 
 # LARGEST FY21 PARTNER TARGET SHARES --------------------------------------
 
   #filter to FY21 and lump remaining 20% of partners
-  df_tx_21 <- df_tx %>% 
+  df_tx_21 <- df_tx_agg %>% 
     filter(fiscal_year == 2021) %>%
     mutate(primepartner = fct_lump(primepartner, prop = .03, w = share, other_level = "ALL OTHER")) 
   
@@ -76,12 +77,27 @@
     mutate(primepartner = as.character(primepartner)) %>% 
     pull(primepartner)
   
+  #label
+  df_lab <- df_tx_clean %>% 
+    filter(primepartner %in% lrg_partners,
+           fiscal_year == 2021) %>% 
+    count(primepartner, countryname, wt = targets) %>% 
+    arrange(desc(n)) %>% 
+    group_by(primepartner) %>%
+    summarise(countryname = paste(countryname, collapse = ", "),
+              n = n()) %>% 
+    ungroup() %>% 
+    mutate(label = ifelse(n <= 3, glue("{primepartner}<br>{countryname}"), glue("{primepartner}<br>{n} countries")))
+  
+  
   #plot
   (v1 <- df_tx_21 %>% 
       mutate(primepartner = fct_lump(primepartner, prop = .03, w = share)) %>% 
       group_by(primepartner) %>% 
       summarise(across(c(cumulative, targets), sum, na.rm = TRUE))  %>% 
       ungroup() %>% 
+      left_join(df_lab) %>% 
+      mutate(primepartner = ifelse(is.na(label), "ALL OTHER", label)) %>% 
       mutate(primepartner = fct_reorder(primepartner, targets),
              primepartner = fct_relevel(primepartner, "ALL OTHER", after = 0),
              achv = cumulative / targets,
@@ -91,22 +107,22 @@
       geom_col(aes(cumulative, fill = primepartner == "ALL OTHER")) + 
       geom_errorbar(aes(y = primepartner, xmin = targets, xmax =targets),
                     color = trolley_grey) +
-      geom_text(aes(x = 70000, label = label), size = 2.5,
+      geom_text(aes(x = 100000, label = label), size = 2.5,
                 family = "Source Sans Pro", color = "white") +
       scale_x_continuous(labels = unit_format(.1, unit = "M", scale = 1e-6), expand = c(.005, .005)) +
       scale_fill_manual(values = c(scooter, moody_blue)) +
       labs(x = NULL, y = NULL, 
-           subtitle = "80% of FY21 USAID targets are held by 13 partners",
+           subtitle = "70% of FY21 USAID targets held by 11 partners",
            caption = "Source: FY21Q1i MSD") +
       si_style_xgrid() +
       theme(legend.position = "none",
-            axis.text.y = element_text(size = 7)))
+            axis.text.y = element_markdown(size = 7)))
 
 
 # TRENDS BY PARTNER TYPE --------------------------------------------------
 
   #aggregate up to largest and other partners
-  df_tx_trends <- df_tx %>%
+  df_tx_trends <- df_tx_agg %>%
     mutate(partner_type = ifelse(primepartner %in% lrg_partners, "Largest FY21 Partners", "All Other")) %>% 
     group_by(fiscal_year, partner_type) %>% 
     summarise(across(c(targets, starts_with("qtr")), sum, na.rm = TRUE))  %>% 
@@ -148,6 +164,4 @@
 
  si_save("Images/FY21Q1_GLOBAL_LARGE_TX_CURR_PARTNERS.png",
          width = 9.5, height = 4.5)  
- 
- 
  
