@@ -361,3 +361,109 @@
            dpi = "retina", 
            scale = 1.15)
     
+
+# BUDGET REMAKE -----------------------------------------------------------
+ 
+    library(ggforce)
+    
+    budget <- tibble::tribble(
+                                  ~type,     ~value,  ~time,      ~total,      ~share,          ~color, ~order,
+                "Identitified Partners", 586769921L, "FY21",  773088652L, 0.758994353,       scooter,       1,
+                         "TBD Partners", 186318731L, "FY21",  773088652L, 0.241005647, scooter_light,       2,
+                            "Remaining", 742771450L, "FY21", 1515860102L,        0.49,       grey10k,       3,
+                )
+
+      budget %>% 
+      mutate(value = value / 1e6,
+             type_order = factor(type),
+             type_order = fct_reorder(type_order, order, .desc = T),
+             mark = 
+             ) %>% 
+      ggplot(aes(x = value, y = time, group = (type_order), fill = color)) +
+      geom_col() +
+        geom_vline(xintercept = c(500, 1000, 1500), color = "white", linetype = "dotted") +
+        geom_vline(xintercept = c(1061), color = "black", linetype = "dotted") +
+        geom_text(aes(label = percent(share)),
+                  family = "Source Sans Pro") +
+      scale_fill_identity() +
+        
+      scale_x_continuous(labels = unit_format(unit = "M"), position = "top") +
+      si_style_nolines() +
+      coord_cartesian(expand = F) +
+      labs(x = NULL, y = NULL, title = "")
+      
+      ggsave(here(graph, "FY21Q1_budget_tbds_remake_part1.svg"),
+             width = 10, 
+             height = 2.625,
+             dpi = "retina")
+        
+      
+      bdg2 <- tibble::tribble(
+                      ~time, ~value, ~order,
+                "Pre-COP20",   41.8,     1L,
+                  "FY21 Q1",    7.6,     2L,
+                  "FY21 Q2",    8.7,     3L,
+                  "FY21 Q3",   90.9,     4L,
+                  "FY21 Q4",    3.6,     5L,
+                "Post FY21",   19.8,     6L,
+                  "Unknown",   12.7,     7L
+                )
+
+      bdg2 %>% 
+        mutate(time = fct_reorder(time, order)) %>% 
+        ggplot(aes(x = time, y = value)) +
+        geom_col(fill = scooter_light) +
+        geom_text(aes(label = value), vjust = 1.25,
+                  family = "Source Sans Pro",
+                  color = color_caption, 
+                  size = 6) +
+        si_style_xline() +
+        coord_cartesian(expand = F) +
+        theme(axis.text.y = element_blank() ) +
+        labs(x = NULL, y = NULL)
+      
+      ggsave(here(graph, "FY21Q1_budget_tbds_remake_part2.svg"),
+             width = 10, 
+             height = 3.4,
+             dpi = "retina")
+        
+
+# LOCAL PARTNERS CASCADE --------------------------------------------------
+
+  lp <- read_excel(here(data, "FY21Q1_local_partners_cascade.xlsx"))      
+      
+  lp %>% 
+    mutate(type_color = if_else(type == "Local", genoa, grey40k),
+           indic_order = factor(indicator),
+           indic_order = fct_relevel(indic_order,
+                                "HTS_TST",
+                                "HTS_TST_POS",
+                                "TX_NEW",
+                                "TX_CURR",
+                                "PrEP_NEW",
+                                "VMMC_CIRC")) %>% 
+    ggplot(aes(x = type)) +
+    geom_col(aes(y = `FY21 Targets`), fill = grey10k) +
+    geom_errorbar(aes(ymin = `FY21 Targets`, ymax = `FY21 Targets`), color = grey50k) +
+    geom_col(aes(y = FY21Q1, fill = type_color), width = .75) +
+    geom_text(aes(y = FY21Q1,
+                  label = percent(Achievement, 1)),
+              family = "Source Sans Pro",
+              vjust = 1.25,
+              color = "white") +
+    facet_wrap(~indic_order, scales = "free_y") +
+    scale_fill_identity() +
+    scale_y_continuous(labels = unit_format(unit = "K", scale = 1e-3)) +
+    si_style_xline() +
+    coord_cartesian(expand = F, clip = "off") +
+    labs(x = NULL, y = NULL, title = "",
+         caption = "Source: FY21Q1i MSD")
+  
+  ggsave(here(graph, "FY21Q1_local_partners_cascade.svg"),
+         height = 4.5,
+         width = 9, 
+         dpi = "retina", 
+         scale = 1.15)  
+    
+    
+    
