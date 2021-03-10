@@ -71,12 +71,13 @@
     ungroup() %>% 
     mutate(pct = if_else(rownum == 3, mmd_sum, pct),
            ou_order = reorder_within(ou, pct, duration),
+           duration = if_else(duration == "na", "not reported", duration),
            mmd_order = factor(duration),
            mmd_order = fct_relevel(mmd_order, 
                                  "6+ Month MMD", 
                                  "3+ Month MMD",
                                  "<3 Months (non-MMD)",
-                                 "na"),
+                                 "not reported"),
            ou_color = case_when(
              duration == "6+ Month MMD" & pct >= 0.5 ~ genoa,
              duration == "6+ Month MMD" & pct < 0.5 ~ genoa_light,
@@ -273,7 +274,196 @@
 # TB SLIDES ---------------------------------------------------------------
 
   tb_art <- read_excel(here(data, "% tb art coverag.xlsx"))
-  tb_stat <- read_excel(here(data, "% tb stat covera.xlsx"))  
+
   
+  # No Targets: show the number of countries which fall below the average.
+  tb_art_bar <- 
+    tb_art %>% 
+    rename(ou = indicator) %>% 
+    filter(ou != "Cote d'Ivoire") %>% 
+    mutate(ou_order = fct_reorder(ou, TB_ART),
+           TB_ART_diff = TB_ART - .90,
+           TB_ART_pos = if_else(TB_ART > 0.9, TB_ART - .90, NA_real_),
+           ou_color = if_else(TB_ART_diff < 0, old_rose, trolley_grey),
+           ou_order_statpos = fct_reorder(ou, TB_STAT_POS)) 
+  
+
+  max_art <-  tb_art_bar %>% pull(TB_ART_diff) %>% abs() %>% max()
+  
+    tb_art_bar %>% 
+    ggplot(aes(y = ou_order_statpos)) +
+    geom_col(aes(x = TB_STAT_POS), fill = grey40k) +
+    geom_vline(xintercept = c(1000, 2000, 4000, 6000),
+               color = "white", linetype = "dotted", size = 0.5) +
+      geom_text(aes(x = TB_STAT_POS, label = comma(TB_STAT_POS, 1)),
+                hjust = -0.1,
+                family = "Source Sans Pro",
+                color = color_caption) +
+    si_style_nolines() +
+    coord_cartesian(expand = T, clip = "off") +
+    labs(x = NULL, y = NULL) +
+    geom_point(aes(x = -500, fill = TB_ART_diff), shape = 21, size = 11) +
+    geom_text(aes(x = -500, label = percent(TB_ART, 1)), size = 3) +
+    scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, 'BrBG'),
+                         limits = c(-1 * max_art, max_art)) +
+    theme(legend.position = "none",
+          axis.text.x = element_blank())
+    
+    
+    ggsave(here(graphs, "FY21Q1_TB_ART_remake.svg"),
+           width = 5, 
+           height = 5.625,
+           dpi = "retina",
+           scale = 1.15)
+    
+    
+
+    # TB_stat now
+    # No Targets: show the number of countries which fall below the average.
+    tb_stat <- read_excel(here(data, "% tb stat covera.xlsx"))  
+    
+    tb_stat_bar <- 
+      tb_stat %>% 
+      rename(ou = Indicator) %>% 
+      filter(ou != "Cote d'Ivoire") %>% 
+      mutate(ou_order = fct_reorder(ou, TB_STAT),
+             TB_STAT_diff = TB_STAT - .90,
+             TB_STAT_pos = if_else(TB_STAT > 0.9, TB_STAT - .90, NA_real_),
+             ou_color = if_else(TB_STAT_diff < 0, old_rose, trolley_grey),
+             ou_order_statpos = fct_reorder(ou, `TB_STAT Den`)) 
+
+    
+   max_stat <-  tb_stat_bar %>% pull(TB_STAT_diff) %>% abs() %>% max()
+    
+
+    tb_stat_bar %>% 
+      ggplot(aes(y = ou_order_statpos)) +
+      geom_col(aes(x = `TB_STAT Den`), fill = grey40k) +
+      geom_vline(xintercept = c(1000, 3000, 6000, 12000),
+                 color = "white", linetype = "dotted", size = 0.5) +
+      geom_text(aes(x = `TB_STAT Den`, label = comma(`TB_STAT Den`, 1)),
+                hjust = -0.1,
+                family = "Source Sans Pro",
+                color = color_caption) +
+      si_style_nolines() +
+      coord_cartesian(expand = T, clip = "off") +
+      labs(x = NULL, y = NULL) +
+      geom_point(aes(x = -1000, fill = TB_STAT_diff), shape = 21, size = 11) +
+      geom_text(aes(x = -1000, label = percent(TB_STAT, 1)), size = 3) +
+      scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, 'BrBG'),
+                           limits = c(-1 * max_stat, max_stat)) +
+      theme(legend.position = "none",
+            axis.text.x = element_blank())
+    
+    ggsave(here(graphs, "FY21Q1_TB_STAT_remake.svg"),
+           width = 5, 
+           height = 5.625,
+           dpi = "retina", 
+           scale = 1.15)
+    
+
+# BUDGET REMAKE -----------------------------------------------------------
+ 
+    library(ggforce)
+    
+    budget <- tibble::tribble(
+                                  ~type,     ~value,  ~time,      ~total,      ~share,          ~color, ~order,
+                "Identitified Partners", 586769921L, "FY21",  773088652L, 0.758994353,       scooter,       1,
+                         "TBD Partners", 186318731L, "FY21",  773088652L, 0.241005647, scooter_light,       2,
+                            "Remaining", 742771450L, "FY21", 1515860102L,        0.49,       grey10k,       3,
+                )
+
+      budget %>% 
+      mutate(value = value / 1e6,
+             type_order = factor(type),
+             type_order = fct_reorder(type_order, order, .desc = T),
+             mark = 
+             ) %>% 
+      ggplot(aes(x = value, y = time, group = (type_order), fill = color)) +
+      geom_col() +
+        geom_vline(xintercept = c(500, 1000, 1500), color = "white", linetype = "dotted") +
+        geom_vline(xintercept = c(1061), color = "black", linetype = "dotted") +
+        geom_text(aes(label = percent(share)),
+                  family = "Source Sans Pro") +
+      scale_fill_identity() +
+        
+      scale_x_continuous(labels = unit_format(unit = "M"), position = "top") +
+      si_style_nolines() +
+      coord_cartesian(expand = F) +
+      labs(x = NULL, y = NULL, title = "")
+      
+      ggsave(here(graph, "FY21Q1_budget_tbds_remake_part1.svg"),
+             width = 10, 
+             height = 2.625,
+             dpi = "retina")
+        
+      
+      bdg2 <- tibble::tribble(
+                      ~time, ~value, ~order,
+                "Pre-COP20",   41.8,     1L,
+                  "FY21 Q1",    7.6,     2L,
+                  "FY21 Q2",    8.7,     3L,
+                  "FY21 Q3",   90.9,     4L,
+                  "FY21 Q4",    3.6,     5L,
+                "Post FY21",   19.8,     6L,
+                  "Unknown",   12.7,     7L
+                )
+
+      bdg2 %>% 
+        mutate(time = fct_reorder(time, order)) %>% 
+        ggplot(aes(x = time, y = value)) +
+        geom_col(fill = scooter_light) +
+        geom_text(aes(label = value), vjust = 1.25,
+                  family = "Source Sans Pro",
+                  color = color_caption, 
+                  size = 6) +
+        si_style_xline() +
+        coord_cartesian(expand = F) +
+        theme(axis.text.y = element_blank() ) +
+        labs(x = NULL, y = NULL)
+      
+      ggsave(here(graph, "FY21Q1_budget_tbds_remake_part2.svg"),
+             width = 10, 
+             height = 3.4,
+             dpi = "retina")
+        
+
+# LOCAL PARTNERS CASCADE --------------------------------------------------
+
+  lp <- read_excel(here(data, "FY21Q1_local_partners_cascade.xlsx"))      
+      
+  lp %>% 
+    mutate(type_color = if_else(type == "Local", genoa, grey40k),
+           indic_order = factor(indicator),
+           indic_order = fct_relevel(indic_order,
+                                "HTS_TST",
+                                "HTS_TST_POS",
+                                "TX_NEW",
+                                "TX_CURR",
+                                "PrEP_NEW",
+                                "VMMC_CIRC")) %>% 
+    ggplot(aes(x = type)) +
+    geom_col(aes(y = `FY21 Targets`), fill = grey10k) +
+    geom_errorbar(aes(ymin = `FY21 Targets`, ymax = `FY21 Targets`), color = grey50k) +
+    geom_col(aes(y = FY21Q1, fill = type_color), width = .75) +
+    geom_text(aes(y = FY21Q1,
+                  label = percent(Achievement, 1)),
+              family = "Source Sans Pro",
+              vjust = 1.25,
+              color = "white") +
+    facet_wrap(~indic_order, scales = "free_y") +
+    scale_fill_identity() +
+    scale_y_continuous(labels = unit_format(unit = "K", scale = 1e-3)) +
+    si_style_xline() +
+    coord_cartesian(expand = F, clip = "off") +
+    labs(x = NULL, y = NULL, title = "",
+         caption = "Source: FY21Q1i MSD")
+  
+  ggsave(here(graph, "FY21Q1_local_partners_cascade.svg"),
+         height = 4.5,
+         width = 9, 
+         dpi = "retina", 
+         scale = 1.15)  
+    
     
     
