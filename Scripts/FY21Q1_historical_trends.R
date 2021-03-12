@@ -42,6 +42,15 @@
       mutate(achievement = cumulative / targets)
   }
 
+  annual_summary <- function(df) {
+    df %>% 
+    group_by(fiscal_year, indicator) %>% 
+    summarise(across(c(targets, cumulative), sum, na.rm = T)) %>% 
+    mutate(pct = cumulative / targets) %>% 
+    arrange(indicator, fiscal_year) %>% 
+    select(-targets, -cumulative)
+  }
+  
 # LOAD DATA  & MUNGE ============================================================================  
 
   msd_18 <- 
@@ -64,7 +73,10 @@
     msd_21 %>% 
     calc_ach()
   
-  msd_hist <- 
+  
+  
+  
+  msd_hist_noSA <- 
     bind_rows(msd_18_ach, msd_21_ach) %>% 
     filter(fiscal_year != 2015,
            operatingunit != "South Africa") %>% 
@@ -84,18 +96,61 @@
            usaid_ach = USAID_cumulative / USAID_targets) %>% 
     ungroup()
   
-  msd_hist %>% 
-    arrange(operatingunit, indicator, fiscal_year) %>% 
-    spread(fiscal_year, annual_sh) 
-  
-  msd_hist %>% 
-    filter(operatingunit != "South Africa") %>% 
+  msd_hist_SA <- 
+    bind_rows(msd_18_ach, msd_21_ach) %>% 
+    filter(fiscal_year != 2015) %>% 
+    group_by(fiscal_year, indicator)%>% 
+    mutate(tot_results = sum(cumulative, na.rm = T)) %>% 
+    ungroup() %>% 
+    mutate(annual_sh = cumulative / tot_results) %>% 
+    mutate(
+      ou_color = case_when(
+        achievement > 1.1 ~ grey30k,
+        achievement >= 0.9 & achievement <= 1.1  ~ "#5bb5d5",
+        achievement >= 0.75 & achievement < 0.9  ~ "#ffcaa2",
+        achievement < 0.75 ~ "#ff939a")
+    ) %>% 
     group_by(fiscal_year, indicator) %>% 
-    summarise(across(c(targets, cumulative), sum, na.rm = T)) %>% 
-    mutate(pct = cumulative / targets) %>% 
-    arrange(indicator, fiscal_year) %>% 
-    select(-targets, -cumulative) %>% 
-    spread(fiscal_year, pct)
+    mutate(across(c(targets, cumulative), sum, na.rm = T, .names = "USAID_{col}"),
+           usaid_ach = USAID_cumulative / USAID_targets) %>% 
+    ungroup()
+
+  
+ ach_noSA <-  msd_hist_noSA %>% 
+    annual_summary() %>% 
+    mutate(flag = "Without South Africa")
+
+ ach_SA <- msd_hist_SA %>% 
+   annual_summary() %>% 
+   mutate(flag = "With South Africa")
+ 
+ bind_rows(ach_SA, ach_noSA) %>% 
+   filter(indicator != "HTS_TST") %>% 
+   mutate(flag_color = ifelse(flag == "With South Africa", burnt_sienna, denim),
+          indicator = fct_relevel(indicator, 
+                                  "HTS_TST_POS",
+                                  "TX_NEW", "TX_CURR")) %>% 
+   group_by(indicator, fiscal_year) %>% 
+   mutate(xmax = max(pct), 
+          xmin = min(pct)) %>% 
+   ungroup() %>% 
+   ggplot(aes(x = fiscal_year, y = pct, color = flag_color, group = flag)) +
+   geom_hline(yintercept = 1, size = 0.5, color = grey20k, linetype = "dotted") +
+     geom_ribbon(data = . %>% filter(fiscal_year != 2021), 
+                 aes(ymax = xmax, ymin = xmin), fill = grey10k, color = NA, alpha = 0.75) +
+   geom_line(data = . %>% filter(flag == "With South Africa", fiscal_year != 2021), alpha = 0.75) +
+   geom_line(data = . %>% filter(flag == "Without South Africa", fiscal_year != 2021), alpha = 0.75) +
+   geom_point(aes(fill = flag_color), shape = 21, color = "white", stroke = .25, size = 4) +
+   ggrepel::geom_text_repel(aes(label = percent(pct, 1)), family = "Source Sans Pro", force = 20) +
+   facet_wrap(~indicator) +
+   scale_color_identity()+
+   scale_fill_identity() +
+   si_style_xline() +
+   coord_cartesian(clip = "off", expand = T) +
+   theme(axis.text.y = element_blank()) +
+   labs(x = NULL, y = NULL)
+   
+  si_save(file.path(graphs, "FY21Q1_global_achievement_SouthAfrica_comparison2.svg"), scale = 1.15)
   
   
   
@@ -105,9 +160,9 @@
   min <- min(msd_hist$achievement[msd_hist$fiscal_year == 2021])
 
   #  Plot each indiactor as a dot plot by time, weighting each dot by target volume  
-  trend_plot <- function(indic) {
+  trend_plot <- function(df, indic) {
   
-  p <- msd_hist %>% 
+  p <- df %>% 
     filter(fiscal_year != 2021,
            targets != 0,
            indicator == {{indic}}) %>%
@@ -126,7 +181,7 @@
     geom_point(aes(y = achievement, fill = ou_color), 
                shape = 21, color = "white", alpha = 0.75,
                position = position_jitter(w = 0.15, h = 0, seed = 42)) +
-    geom_point(data = msd_hist %>% filter(fiscal_year == 2021, indicator == {{indic}}),
+    geom_point(data = df %>% filter(fiscal_year == 2021, indicator == {{indic}}),
                 aes(y = achievement, fill = ou_color), shape = 21, color = "white", alpha = 0.25,
                position = position_jitter(w = 0.15, h = 0, seed = 42)) +
     geom_smooth(aes(y = usaid_ach), color = grey80k, se = F) +
@@ -140,7 +195,7 @@
     theme(legend.position = "none") +
     ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption) +
     labs(x = NULL, y = NULL, title = "",
-         caption = "Source: MSD FY16-FY21. South Africa excluded.  ")
+         caption = "Source: MSD FY16-FY21.")
     return(p)
     
     si_save(here(images, paste0("FY21Q1_historical_trends", {{indic}})), 
@@ -152,14 +207,12 @@
   }
   
 
-  list("HTS_TST_POS", "TX_CURR", "TX_NEW") %>% 
-    map(~trend_plot(.x))
+  list("HTS_TST_POS", "TX_NEW", "TX_CURR") %>% 
+    map(~trend_plot(msd_hist_noSA, .x))
   
   trend_plot("TX_NEW")
   
-  ggsave(here(graphs, "FY21Q1_historical_trends.svg"), scale = 1.25,
-         width = 10, height = 5.625, dpi = 320)
-  
+
 
   # Distribution shifts?    
   msd_hist %>% 
