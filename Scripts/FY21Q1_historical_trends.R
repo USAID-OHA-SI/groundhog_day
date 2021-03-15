@@ -67,7 +67,7 @@
       ungroup()
   }
   
-  
+  # Applies the SIEI recommended achievement colors to variable capturing achievement
   apply_ach_colors <- function(ach_var) {
     case_when(
       {{ach_var}} > 1.1 ~ "#BCBEC0",
@@ -75,6 +75,9 @@
       {{ach_var}}  >= 0.75 &  {{ach_var}}  < 0.9  ~ "#ffcaa2",
       {{ach_var}}  < 0.75 ~ "#ff939a")
   }
+  
+  # Caption for the data
+  data_caption <- "FY2016 - FY2021 MSDs"
   
   
   
@@ -119,7 +122,7 @@
      annual_summary(fiscal_year, indicator) %>% 
      mutate(flag = "With South Africa")
 
- # VIZ ============================================================================ 
+ # COMPARE IMPACT OF SOUTH AFRICA ============================================================================ 
   
   # PLOT different between including / excluding South Africa into overall USAID Achievement
    bind_rows(ach_SA, ach_noSA) %>% 
@@ -151,25 +154,30 @@
   si_save(file.path(graphs, "FY21Q1_global_achievement_SouthAfrica_comparison2.svg"), scale = 1.15)
   
   
-  # Density plot of achievement + colored achievement share + TRENDS across all years
+
+# DENSITY PLOT WITH TRENDS ------------------------------------------------
+
+# Density plot of achievement + colored achievement share + TRENDS across all years
 
     min <- min(msd_hist$achievement[msd_hist$fiscal_year == 2021])
+
 
   #  Plot each indiactor as a dot plot by time, weighting each dot by target volume  
   # df: achievement dataframe w/ and w/out South Africa
   # indic: indicator for which plot will be produced
   
-    trend_plot <- function(df, indic) {
+    trend_plot <- function(df, indic, ou = operatingunit) {
     
     p <- df %>% 
       filter(fiscal_year != 2021,
              targets != 0,
              indicator == {{indic}}) %>%
       mutate(ou_label = case_when(
-               indicator == "HTS_TST" & achievement<= 0.5 ~ operatingunit,
-               indicator == "HTS_TST_POS" & achievement <.45 ~ operatingunit,
-               indicator == "TX_CURR" & achievement <= 0.5 ~ operatingunit,
-               indicator == "TX_NEW" & achievement <= .45 ~ operatingunit, 
+               indicator == "HTS_TST" & achievement<= 0.5 ~ {{ou}},
+               indicator == "HTS_TST_POS" & achievement <.45 ~ {{ou}},
+               indicator == "TX_CURR" & achievement <= 0.5 ~ {{ou}},
+               indicator == "TX_NEW" & achievement <= .45 ~ {{ou}}, 
+               indicator == "PrEP_NEW" & achievement <= .45 ~ {{ou}}, 
                TRUE ~ NA_character_)
              ) %>% 
       ggplot(aes(x = fiscal_year, group = indicator, size = annual_sh)) +
@@ -183,7 +191,7 @@
       geom_point(data = df %>% filter(fiscal_year == 2021, indicator == {{indic}}),
                   aes(y = achievement, fill = ou_color), shape = 21, color = "white", alpha = 0.25,
                  position = position_jitter(w = 0.15, h = 0, seed = 42)) +
-      geom_smooth(aes(y = usaid_ach), color = grey80k, se = F) +
+      geom_smooth(aes(y = usaid_ach), color = grey80k) + #NOTE -- this is not a real loess as there is no variation across OUS. Making a smooth line fit.
       facet_wrap(~indicator, scales = "free_y") +
       scale_y_continuous(limits = c(0, 2.5), oob=scales::squish, labels = percent,
                          breaks = c(0.5, 1, 1.5)) +
@@ -192,24 +200,26 @@
       scale_fill_identity() +
       scale_size(range = c(0, 10)) +
       theme(legend.position = "none") +
-      ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption) +
+      ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption, family = "Source Sans Pro") +
       labs(x = NULL, y = NULL, title = "",
-           caption = "Source: MSD FY16-FY21.")
+           caption = data_caption)
       return(p)
-      
-      si_save(here(images, paste0("FY21Q1_historical_trends", {{indic}})), 
-              plot = p,
-              scale = 1.1,
-              width = 10, 
-              height = 5.5, 
-              dpi = 320)
+      # 
+      # si_save(file.path(images, paste0("FY21Q1_historical_trends", {{indic}}, "_", {{ou}})), 
+      #         plot = last_plot(),
+      #         scale = 1.1,
+      #         width = 10, 
+      #         height = 5.5, 
+      #         dpi = 320)
     }
+    
+    
+# Plots w/     
     
   # Indicators for which plots are generated
   list("HTS_TST_POS", "TX_NEW", "TX_CURR") %>% 
     map(~trend_plot(msd_hist_noSA, .x))
   
-  trend_plot(msd_hist_noSA %>% filter(fiscal_year != 2016, targets != 0), "PrEP_NEW")
 
   # Distribution shifts?    
   msd_hist %>% 
@@ -230,6 +240,7 @@
   
 
 # REPEAT for SOUTH AFRICA SPECIFIC ----------------------------------------
+  
   msd_18_SA <- 
     read_msd(file.path(merdata, "MER_Structured_Dataset_PSNU_IM_FY17-18_20181221_v2_1_South Africa.zip")) %>% 
     filter(fundingagency == "USAID",
@@ -239,6 +250,7 @@
   
   msd_18_SA_ach <- 
     msd_18_SA %>% 
+    filter(fiscal_year != 2019) %>% 
     calc_ach(operatingunit, indicator, fiscal_year, psnu)  
   
   
@@ -254,11 +266,15 @@
     calc_ach(operatingunit, indicator, fiscal_year, psnu)
   
   
+  # Combine the two data frames and calculate shares by PSNU
   msd_hist_psnu <- 
     bind_rows(msd_18_SA_ach, msd_21_SA_ach) %>% 
-    get_ach_shares()
+    get_ach_shares() %>% 
+    clean_psnu() %>% 
+    mutate(operatingunit = psnu) 
   
 
+  # Check data, paying attention to NaNs and Infs and NAs
   msd_hist_psnu %>% 
     annual_summary(fiscal_year, indicator, psnu) %>% 
     pivot_wider(names_from = fiscal_year, 
@@ -268,31 +284,48 @@
   
   
   # Do PSNU numbers aggregate up to USAID totals? NO!? YIKES.
-  ach_psnu_collapse <- msd_hist_psnu %>% 
+  # ach_psnu_collapse <- 
+    msd_hist_psnu %>% 
     annual_summary(fiscal_year, indicator) %>% 
-    mutate(aggregator = "psnu")
+    mutate(aggregator = "psnu") %>% 
+      pivot_wider(names_from = fiscal_year,
+                  values_from = pct)
   
- ach_ou_collapse <-  msd_hist_SA %>% 
-    filter(operatingunit == "South Africa") %>% 
+ # ach_ou_collapse <-  
+   msd_hist_SA %>% 
+    filter(operatingunit == "South Africa", fiscal_year != 2016) %>% 
     annual_summary(fiscal_year, indicator) %>% 
-   mutate(aggregator = "ou")
-    
- bind_rows(ach_psnu_collapse, ach_ou_collapse) %>% 
-   filter(fiscal_year != 2016) %>% 
-   ggplot(aes(x = fiscal_year, y = pct, fill = aggregator, group = aggregator)) +
-   geom_col(aes(y = 0.5), fill = grey10k, alpha = 0.75) +
-   geom_col(data = . %>% filter(fiscal_year != 2019), position = position_dodge2(width = 0.5), alpha = 0.5) +
-   geom_col(data = . %>% filter(fiscal_year == 2019), position = position_dodge2(width = 0.5)) +
-   facet_wrap(~indicator, scale = "free_y") +
-   scale_y_continuous(labels = percent) +
-   scale_fill_manual(values = c(denim, golden_sand)) +
-   si_style_ygrid() +
-   labs(x = "Fiscal Year", y = "OU Achievement (results/targets)", title = "South Africa PSNU X IM data does not match the OU X IM achievement results",
-        caption = "Source: MER_Structured_Datasets_PSNU_IM_FY19-21_20210212_v1_1_South Africa.zip & MER_Structured_Datasets_OU_IM_FY19-21_20210212_v1_1.zip")
-   
- si_save(file.path(images, "DATIM_SouthAfrica_ticket.png"))
+   mutate(aggregator = "ou") %>% 
+   pivot_wider(names_from = fiscal_year,
+               values_from = pct)
+ 
+ # bind_rows(ach_psnu_collapse, ach_ou_collapse) %>% 
+ #   filter(fiscal_year != 2016) %>% 
+ #   ggplot(aes(x = fiscal_year, y = pct, fill = aggregator, group = aggregator)) +
+ #   geom_col(aes(y = 0.5), fill = grey10k, alpha = 0.75) +
+ #   geom_col(data = . %>% filter(fiscal_year != 2019), position = position_dodge2(width = 0.5), alpha = 0.5) +
+ #   geom_col(data = . %>% filter(fiscal_year == 2019), position = position_dodge2(width = 0.5)) +
+ #   facet_wrap(~indicator, scale = "free_y") +
+ #   scale_y_continuous(labels = percent) +
+ #   scale_fill_manual(values = c(denim, golden_sand)) +
+ #   si_style_ygrid() +
+ #   labs(x = "Fiscal Year", y = "OU Achievement (results/targets)", title = "PSNU X IM MATCHES OU X IM ACHIEVEMENT RESULTS",
+ #        caption = "Source: MER_Structured_Datasets_PSNU_IM_FY19-21_20210212_v1_1_South Africa.zip & MER_Structured_Datasets_OU_IM_FY19-21_20210212_v1_1.zip")
+ #  
+ # si_save(file.path(images, "DATIM_SouthAfrica_ticket.png"))
   
 
+
+# PSNU PLOTS for SOUTH AFRICA ---------------------------------------------
+
+  # PSNU is now operating unit -- clone this to keep it simple
+   list("HTS_TST_POS", "TX_NEW", "TX_CURR") %>% 
+     map(~trend_plot(msd_hist_psnu %>% filter_at(vars(achievement), all_vars(!is.infinite(.))), .x, psnu))
+  
+   trend_plot(msd_hist_psnu %>% 
+                filter_at(vars(achievement), all_vars(!is.infinite(.))) %>% 
+                filter(fiscal_year != 2017), "PrEP_NEW", psnu)
+ 
  
  # SPINDOWN ============================================================================
 
