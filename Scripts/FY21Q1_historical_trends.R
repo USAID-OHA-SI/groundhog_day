@@ -27,11 +27,10 @@
     dataout <- "Dataout"
     images  <- "Images"
     graphs  <- "Graphics"
-   
     merdata <- glamr::si_path("path_msd")
      
   # Functions  
-  indic_list <- c("HTS_TST_POS", "TX_CURR", "TX_NEW", "PrEP_NEW")
+
   
   # Collapse and sum targets and cumulative results by OU / indicator /FY
   calc_ach <- function(df, ...) {
@@ -42,6 +41,7 @@
       mutate(achievement = cumulative / targets)
   }
 
+  # Create an annual summary to compare trends across years
   annual_summary <- function(df, ...) {
     df %>% 
     group_by(...) %>% 
@@ -76,9 +76,15 @@
       {{ach_var}}  < 0.75 ~ "#ff939a")
   }
   
-  # Caption for the data
-  data_caption <- "FY2016 - FY2021 MSDs"
+  # Save plots
+  trends_save <- function() {
+
+  }
+
   
+  #  Global objects 
+  data_caption <- "FY2016 - FY2021 MSDs"
+  indic_list <- c("HTS_TST_POS", "TX_CURR", "TX_NEW", "PrEP_NEW")
   
   
 # LOAD DATA  & MUNGE ============================================================================  
@@ -104,6 +110,10 @@
     msd_21 %>% 
     calc_ach(operatingunit, indicator, fiscal_year)
   
+  # Check the fiscal years in each data frame to make sure no extra targets are hanging around in 18 data
+  msd_18_ach %>% count(fiscal_year)
+  msd_21_ach %>% count(fiscal_year)
+    
   # Create two data frames, one w/ South Africa and one without for comparison
     msd_hist_noSA <- 
       bind_rows(msd_18_ach, msd_21_ach) %>% 
@@ -126,7 +136,7 @@
   
   # PLOT different between including / excluding South Africa into overall USAID Achievement
    bind_rows(ach_SA, ach_noSA) %>% 
-     filter(indicator != "HTS_TST") %>% 
+     filter(indicator != "PrEP_NEW") %>% 
      mutate(flag_color = ifelse(flag == "With South Africa", burnt_sienna, denim),
             indicator = fct_relevel(indicator, 
                                     "HTS_TST_POS",
@@ -143,7 +153,7 @@
      geom_line(data = . %>% filter(flag == "Without South Africa", fiscal_year != 2021), alpha = 0.75) +
      geom_point(aes(fill = flag_color), shape = 21, color = "white", stroke = .25, size = 4) +
      ggrepel::geom_text_repel(aes(label = percent(pct, 1)), family = "Source Sans Pro", force = 20) +
-     facet_wrap(~indicator) +
+     facet_wrap(~indicator, nrow = 1) +
      scale_color_identity()+
      scale_fill_identity() +
      si_style_xline() +
@@ -157,14 +167,13 @@
 
 # DENSITY PLOT WITH TRENDS ------------------------------------------------
 
-# Density plot of achievement + colored achievement share + TRENDS across all years
-
-    min <- min(msd_hist$achievement[msd_hist$fiscal_year == 2021])
-
-
-  #  Plot each indiactor as a dot plot by time, weighting each dot by target volume  
+  # General Idea
+  # Density plot of achievement + colored achievement share + USAID TRENDS across all years
+  # Plot each indicator as a dot plot by time, weighting each dot by target volume  
+  
   # df: achievement dataframe w/ and w/out South Africa
   # indic: indicator for which plot will be produced
+  # ou: level of geography across which dots are plotted
   
     trend_plot <- function(df, indic, ou = operatingunit) {
     
@@ -173,7 +182,7 @@
              targets != 0,
              indicator == {{indic}}) %>%
       mutate(ou_label = case_when(
-               indicator == "HTS_TST" & achievement<= 0.5 ~ {{ou}},
+               #indicator == "HTS_TST" & achievement<= 0.5 ~ {{ou}},
                indicator == "HTS_TST_POS" & achievement <.45 ~ {{ou}},
                indicator == "TX_CURR" & achievement <= 0.5 ~ {{ou}},
                indicator == "TX_NEW" & achievement <= .45 ~ {{ou}}, 
@@ -191,7 +200,7 @@
       geom_point(data = df %>% filter(fiscal_year == 2021, indicator == {{indic}}),
                   aes(y = achievement, fill = ou_color), shape = 21, color = "white", alpha = 0.25,
                  position = position_jitter(w = 0.15, h = 0, seed = 42)) +
-      geom_smooth(aes(y = usaid_ach), color = grey80k) + #NOTE -- this is not a real loess as there is no variation across OUS. Making a smooth line fit.
+      geom_smooth(aes(y = usaid_ach), color = grey80k) + #NOTE -- this is not a real loess as there is no variation across OUS. Making a smooth line fit through the data versus fitting an actual line through the ous achievement distribution
       facet_wrap(~indicator, scales = "free_y") +
       scale_y_continuous(limits = c(0, 2.5), oob=scales::squish, labels = percent,
                          breaks = c(0.5, 1, 1.5)) +
@@ -203,23 +212,18 @@
       ggrepel::geom_text_repel(aes(y = achievement, label = ou_label), size = 3, colour = color_caption, family = "Source Sans Pro") +
       labs(x = NULL, y = NULL, title = "",
            caption = data_caption)
-      return(p)
-      # 
-      # si_save(file.path(images, paste0("FY21Q1_historical_trends", {{indic}}, "_", {{ou}})), 
-      #         plot = last_plot(),
-      #         scale = 1.1,
-      #         width = 10, 
-      #         height = 5.5, 
-      #         dpi = 320)
+    return(p)
     }
     
     
-# Plots w/     
     
+# TODO: @ACHAFETZ -- why this not working?  
+  # Something buggy here I need to fix.     
   # Indicators for which plots are generated
-  list("HTS_TST_POS", "TX_NEW", "TX_CURR") %>% 
-    map(~trend_plot(msd_hist_noSA, .x))
-  
+  indic_names <- list("HTS_TST_POS", "TX_NEW", "TX_CURR")
+  map(indic_names, .f = ~trend_plot(msd_hist_noSA, .x) %>%
+        ggsave(file.path(images, str_c("_FY21_trends", .x, ".png")))
+        )
 
   # Distribution shifts?    
   msd_hist %>% 
