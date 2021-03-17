@@ -374,6 +374,48 @@
      mutate(aggregator = "ou") %>% 
      pivot_wider(names_from = fiscal_year,
                values_from = pct)
+   
+
+# PLOT COMPARING USAID TO CDC ---------------------------------------------
+
+ # Create plot similar to one above showing USAID Achievmeent w/ and w/out South Africa 
+ # Except here we are comparing USAID w/ CDC
+
+  usaid <-  msd_hist_psnu %>% 
+     annual_summary(fiscal_year, indicator) %>% 
+     mutate(flag = "USAID")
+   
+  cdc <-  msd_hist_psnu_cdc %>% 
+     annual_summary(fiscal_year, indicator) %>% 
+     mutate(flag = "CDC")  
+  
+  bind_rows(usaid, cdc) %>% 
+    mutate(flag_color = ifelse(flag == "USAID", denim, golden_sand),
+           indicator = fct_relevel(indicator, 
+                                   "HTS_TST_POS",
+                                   "TX_NEW", "TX_CURR", "PrEP_NEW")) %>% 
+    group_by(indicator, fiscal_year) %>% 
+    mutate(xmax = max(pct), 
+           xmin = min(pct)) %>% 
+    ungroup() %>% 
+    ggplot(aes(x = fiscal_year, y = pct, color = flag_color, group = flag)) +
+    geom_hline(yintercept = 1, size = 0.5, color = grey20k, linetype = "dotted") +
+    geom_ribbon(data = . %>% filter(fiscal_year != 2021), 
+                aes(ymax = xmax, ymin = xmin), fill = grey10k, color = NA, alpha = 0.75) +
+    geom_line(data = . %>% filter(flag == "USAID", fiscal_year != 2021), alpha = 0.75) +
+    geom_line(data = . %>% filter(flag == "CDC", fiscal_year != 2021), alpha = 0.75) +
+    geom_point(aes(fill = flag_color), shape = 21, color = "white", stroke = .25, size = 4) +
+    ggrepel::geom_text_repel(aes(label = percent(pct, 1)), family = "Source Sans Pro", force = 20) +
+    facet_wrap(~indicator, nrow = 1) +
+    scale_color_identity()+
+    scale_fill_identity() +
+    si_style_xline() +
+    coord_cartesian(clip = "off", expand = T) +
+    theme(axis.text.y = element_blank()) +
+    labs(x = NULL, y = NULL) 
+    
+  si_save(file.path(graphs, "FY21Q1_global_achievement_SouthAfrica_agency_comparison.svg"), scale = 1.15)   
+   
  
 # PLOT COMPARING COLLAPSED ACHIEVEMENT FROM TWO DATA FRAMS
    # bind_rows(ach_psnu_collapse, ach_ou_collapse) %>% 
