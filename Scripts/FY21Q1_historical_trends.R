@@ -22,6 +22,7 @@
     library(here)
     library(ggdist)
     library(glue)
+    library(gt)
     
   # Set paths  
     data   <- "Data"
@@ -83,23 +84,38 @@
   # Grab MSDS, isolate USAID and select indicators and focus on TN
     msd_18 <- 
         read_msd(file.path(merdata, "MER_Structured_Datasets_OU_IM_FY15-18_20210212_v1_1.zip")) %>% 
-        filter(fundingagency == "USAID",
-               indicator %in% indic_list,
+        filter(indicator %in% indic_list,
                standardizeddisaggregate == "Total Numerator")
     
     msd_18_ach <- 
       msd_18 %>% 
+      filter(fundingagency == "USAID") %>% 
+      calc_ach(operatingunit, indicator, fiscal_year) 
+    
+    msd_18_ach_cdc <- 
+      msd_18 %>% 
+      filter(fundingagency == "HHS/CDC",
+             mech_code != "16772") %>% 
       calc_ach(operatingunit, indicator, fiscal_year)  
     
     msd_21 <- 
         read_msd(file.path(merdata, "MER_Structured_Datasets_OU_IM_FY19-21_20210212_v1_1.zip")) %>%
-        filter(fundingagency == "USAID",
-             indicator %in% indic_list,
+        filter(indicator %in% indic_list,
              standardizeddisaggregate == "Total Numerator")
     
     msd_21_ach <- 
       msd_21 %>% 
+      filter(fundingagency == "USAID") %>% 
       calc_ach(operatingunit, indicator, fiscal_year)
+    
+    msd_21_ach_cdc <- 
+      msd_21 %>% 
+      filter(fundingagency == "HHS/CDC",
+             mech_code != "167722") %>% 
+      calc_ach(operatingunit, indicator, fiscal_year)
+    
+    
+    
   
   # Check the fiscal years in each data frame to make sure no extra targets are hanging around in 18 data
     msd_18_ach %>% count(fiscal_year)
@@ -166,7 +182,7 @@
   # indic: indicator for which plot will be produced
   # ou: level of geography across which dots are plotted
   
-  trend_plot <- function(df, indic, ou = operatingunit, ou_save = F, psnu_save = F) {
+  trend_plot <- function(df, indic, ou = operatingunit, ou_save = F, psnu_save = F, psnu_cdc_save = F) {
     
    p <- df %>% 
       filter(fiscal_year != 2021,
@@ -215,6 +231,11 @@
         si_save(plotname, path = images)
     }
    
+   if (psnu_cdc_save == TRUE) {
+     plotname <- glue("FY21Q1_achievement_trends_{indic}_psnu_cdc.png")
+     si_save(plotname, path = images)
+   }
+   
    return(p)
   }
     
@@ -247,27 +268,41 @@
   
     msd_18_SA <- 
       read_msd(file.path(merdata, "MER_Structured_Dataset_PSNU_IM_FY17-18_20181221_v2_1_South Africa.zip")) %>% 
-      filter(fundingagency == "USAID",
-             operatingunit == "South Africa",
+      filter(operatingunit == "South Africa",
              indicator %in% indic_list,
              standardizeddisaggregate == "Total Numerator")
     
     msd_18_SA_ach <- 
       msd_18_SA %>% 
-      filter(fiscal_year != 2019) %>% 
+      filter(fiscal_year != 2019, fundingagency == "USAID") %>% 
       calc_ach(operatingunit, indicator, fiscal_year, psnu)  
     
+    msd_18_SA_ach_cdc <- 
+      msd_18_SA %>% 
+      filter(fiscal_year != 2019, fundingagency == "HHS/CDC",
+             mech_code != "16772") %>% 
+      calc_ach(operatingunit, indicator, fiscal_year, psnu)  
+    
+    
     msd_18_SA_ach %>% count(fiscal_year)
+    msd_18_SA_ach_cdc %>% count(fiscal_year)
+    
     
     msd_21_SA <- 
       read_msd(file.path(merdata, "MER_Structured_Datasets_PSNU_IM_FY19-21_20210212_v1_1_South Africa.zip")) %>%
-      filter(fundingagency == "USAID",
-             operatingunit == "South Africa",
+      filter(operatingunit == "South Africa",
              indicator %in% indic_list,
              standardizeddisaggregate == "Total Numerator")
     
     msd_21_SA_ach <- 
       msd_21_SA %>% 
+      filter(fundingagency == "USAID") %>% 
+      calc_ach(operatingunit, indicator, fiscal_year, psnu)
+    
+    msd_21_SA_ach_cdc <- 
+      msd_21_SA %>% 
+      filter(fundingagency == "HHS/CDC",
+             mech_code != "16772") %>% 
       calc_ach(operatingunit, indicator, fiscal_year, psnu)
     
   # Combine the two data frames and calculate shares by PSNU
@@ -276,10 +311,17 @@
       get_ach_shares() %>% 
       clean_psnu() %>% 
       mutate(operatingunit = psnu) 
+    
+    msd_hist_psnu_cdc <- 
+      bind_rows(msd_18_SA_ach_cdc, msd_21_SA_ach_cdc) %>% 
+      get_ach_shares() %>% 
+      clean_psnu() %>% 
+      mutate(operatingunit = psnu)  
+    
   
 
   # Check data, paying attention to NaNs and Infs and NAs
-    msd_hist_psnu %>% 
+    msd_hist_psnu_cdc %>% 
       annual_summary(fiscal_year, indicator, psnu) %>% 
       pivot_wider(names_from = fiscal_year, 
                   values_from = pct) %>% 
@@ -289,11 +331,41 @@
   
   # Do PSNU numbers aggregate up to USAID totals? NO!? YIKES.
   # ach_psnu_collapse <- 
-    msd_hist_psnu %>% 
+   usaid_trends <-  msd_hist_psnu %>% 
     annual_summary(fiscal_year, indicator) %>% 
       mutate(aggregator = "psnu") %>% 
       pivot_wider(names_from = fiscal_year,
-                  values_from = pct)
+                  values_from = pct) %>% mutate(fundingagency = "USAID")
+    
+   cdc_trends <-  msd_hist_psnu_cdc %>% 
+      annual_summary(fiscal_year, indicator) %>% 
+      mutate(aggregator = "psnu") %>% 
+      pivot_wider(names_from = fiscal_year,
+                  values_from = pct) %>% mutate(fundingagency = "CDC")
+   
+   bind_rows(usaid_trends, cdc_trends) %>% 
+     select(-aggregator) %>% 
+     select(fundingagency, indicator, everything()) %>% 
+     rename(`2021 Q1` = `2021`) %>% 
+   gt(rowname_col = 'fundingagency', 
+      groupname_col = 'indicator') %>% 
+     row_group_order(
+       groups = c("HTS_TST_POS",
+                  "TX_NEW",
+                  "TX_CURR",
+                  "PrEP_NEW")) %>% 
+     fmt_percent(everything(),
+                 decimals = 0) %>% 
+     tab_header(title = md("SOUTH AFRICA ACHIEVEMENT TRENDS BY AGENCY")) %>% 
+     tab_source_note(source_note = "Source: FY17 - FY21 MSDS. CDC calculations exclude NDoH mechanism."
+                   ) %>% 
+     opt_table_font(
+       font = c("Source Sans Pro")
+     ) %>% 
+     tab_options(source_notes.font.size = 10) %>% 
+     cols_width(
+       vars(indicator) ~ px(120),
+       everything() ~ px(120))
   
  # ach_ou_collapse <-  
    msd_hist_SA %>% 
@@ -327,10 +399,10 @@
   # Wrapper for trend_plot to allow for renaming
    
    list("HTS_TST_POS", "TX_NEW", "TX_CURR", "PrEP_NEW") %>% 
-     map(~trend_plot(msd_hist_psnu %>% filter_at(vars(achievement), all_vars(!is.infinite(.))), 
+     map(~trend_plot(msd_hist_psnu_cdc %>% filter_at(vars(achievement), all_vars(!is.infinite(.))), 
                      indic = .x, 
                      ou = psnu, 
-                     psnu_save = T))
+                     psnu_cdc_save  = T))  
   
   # #PrEP_NEW has few observations in 2017
   #  trend_plot(msd_hist_psnu %>% 
