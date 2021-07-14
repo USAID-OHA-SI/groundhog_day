@@ -365,13 +365,6 @@
 # BUDGET REMAKE -----------------------------------------------------------
  
     library(ggforce)
-    
-    budget <- tibble::tribble(
-                                  ~type,     ~value,  ~time,      ~total,      ~share,          ~color, ~order,
-                "Identitified Partners", 586769921L, "FY21",  773088652L, 0.758994353,       scooter,       1,
-                         "TBD Partners", 186318731L, "FY21",  773088652L, 0.241005647, scooter_light,       2,
-                            "Remaining", 742771450L, "FY21", 1515860102L,        0.49,       grey10k,       3,
-                )
 
       budget %>% 
       mutate(value = value / 1e6,
@@ -397,17 +390,6 @@
              height = 2.625,
              dpi = "retina")
         
-      
-      bdg2 <- tibble::tribble(
-                      ~time, ~value, ~order,
-                "Pre-COP20",   41.8,     1L,
-                  "FY21 Q1",    7.6,     2L,
-                  "FY21 Q2",    8.7,     3L,
-                  "FY21 Q3",   90.9,     4L,
-                  "FY21 Q4",    3.6,     5L,
-                "Post FY21",   19.8,     6L,
-                  "Unknown",   12.7,     7L
-                )
 
       bdg2 %>% 
         mutate(time = fct_reorder(time, order)) %>% 
