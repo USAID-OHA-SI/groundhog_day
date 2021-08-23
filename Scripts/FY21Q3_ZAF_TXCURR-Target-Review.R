@@ -48,10 +48,12 @@
            fundingagency %in% c("USAID", "HHS/CDC"),
            indicator == "TX_CURR",
            standardizeddisaggregate == "Total Numerator",
-           fiscal_year >= 2016) %>%
+           fiscal_year >= 2016,
+           mech_code != "16772") %>%
     count(fiscal_year, operatingunit, fundingagency, indicator,
           wt = targets, name = "targets") %>% 
     clean_agency()
+  
 
   df_all <- df_all %>% 
     group_by(fiscal_year, operatingunit) %>% 
