@@ -45,6 +45,11 @@
       ungroup()%>% 
       filter(period %ni% c(paste0("FY", min_yr:max_yr))) 
   }
+  
+  # Default should return current year
+  make_year <- function(x = 0){
+    paste0(20, curr_fy + x) %>% as.numeric()
+  }
 
 
 # IMPORT ------------------------------------------------------------------
@@ -58,6 +63,18 @@
     read_msd()
 
   curr_pd <- identifypd(df)
+  curr_fy <- substr(curr_pd, 3, 4) %>% as.numeric() 
+  
+  curr_yr <- make_year()
+  min_yr <- make_year(-4)
+  max_yr <- make_year(1) 
+  
+  curr_pd_num <- curr_pd %>% 
+    gsub("FY", "", .) %>% 
+    gsub("Q", ".", .) %>% 
+    as.numeric()
+  
+
 
 # MUNGE -------------------------------------------------------------------
 
@@ -69,8 +86,7 @@
            standardizeddisaggregate == "Total Numerator",
            fiscal_year >= 2017)
   
-  min_yr <- 17
-  max_yr <- 22
+
   
   #curr fy prep (for viz title)
   prep_cum <- df_prep %>% 
@@ -99,6 +115,7 @@
     arrange(period) %>% 
     group_by(fy) %>% 
     fill(target, .direction =  c("down")) %>% 
+    filter(period_type == "results") %>% 
     mutate(value_cumul = cumsum(value),
            value_cumul = ifelse(value == 0, NA_real_, value_cumul)) %>% 
     ungroup() %>% 
@@ -118,9 +135,10 @@
     
   # OU dataframe
  df_prep_ou <-  df_prep %>% 
-    filter(fiscal_year == 2021) %>% 
+    filter(fiscal_year == curr_yr) %>% 
     group_by(fundingagency, fiscal_year, operatingunit) %>% 
     gen_targets() %>% 
+    filter(period_type == "results") %>% 
     group_by(fy, operatingunit) %>% 
     mutate(value_cumul = cumsum(value),
            achv = no_zero_ach(value_cumul, target, value_cumul)) %>% 
@@ -155,14 +173,6 @@
   
 
 # FULL LIST OF PERIODS ----------------------------------------------------
-
-    curr_pd_num <- curr_pd %>% 
-    gsub("FY", "", .) %>% 
-    gsub("Q", ".", .) %>% 
-    as.numeric()
-
-    curr_fy <- substr(curr_pd, 3, 4) %>% as.numeric() 
-
 
     fy_start <- df_prep_hist %>% select(period) %>% 
       filter(str_detect(period, "Q1")) %>% pull()
@@ -223,8 +233,8 @@
     
     df_prep_waffle %>% 
       ggplot(aes(fill = ou, values = value)) +
-      geom_waffle(color = "white", size = .25, n_rows = 10, flip = T) +
-      scale_fill_si(palette = "scooter", discrete = T, reverse = T, alpha = 0.75) +
+      geom_waffle(color = "white", size = .25, n_rows = 10, flip = T, make_proportional = T)  +
+      scale_fill_si(palette = "scooter", discrete = T, reverse = F, alpha = 0.75) +
       si_style_map() 
     
     si_save("Graphics/FY21Q3_PrEP_NEW_ou_gaps.svg", height = 4, width = 4, scale = 1.25)
