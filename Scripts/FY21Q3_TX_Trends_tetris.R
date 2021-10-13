@@ -130,11 +130,12 @@
 
 # VIZZZZZZ ----------------------------------------------------------------
 
-
+nudge_space <- 0.125
+  
   df_tx %>% 
     ggplot(aes(x = period, group = indicator)) +
-    geom_col(aes(y = targets), fill = grey10k, width = 0.5) +
-    geom_col(aes(y = value, fill = ind_color), width = 0.5) +
+    geom_col(aes(y = targets), fill = grey10k, width = 0.5, position = position_nudge(x = -nudge_space)) +
+    geom_col(aes(y = value, fill = ind_color), width = 0.5, position = position_nudge(x = nudge_space)) +
     scale_fill_identity() +
     new_scale_fill() +
     geom_label(data = . %>% filter(indicator == "TX_NEW"), 
