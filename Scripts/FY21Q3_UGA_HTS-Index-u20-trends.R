@@ -79,7 +79,7 @@ msd_source <- source_info()
     theme(axis.text.y = element_blank())
 
   v1 / v2  + plot_annotation(
-      title = 'INCREASED NUMBER OF C/ALHIV WITH KNOWN STATUS AFTER QI IMPLEMENTATION IN UGANDA',
+      title = 'INCREASED NUMBER OF C/ALHIV WITH KNOWN STATUS \nAFTER QI IMPLEMENTATION IN UGANDA',
       subtitle = 'Facility and community Index testing for peds and adolescents (<20)',
       caption = glue("Source: {msd_source}
                      US Agency for International Development"),
@@ -87,5 +87,16 @@ msd_source <- source_info()
     )
     
   si_save("Graphics/UGA_Index_peds_trends.svg", 
+          width = 5.75, height = 4)
+  
+  
+  
+  v1 + 
+    labs(title = 'INCREASED NUMBER OF C/ALHIV WITH KNOWN STATUS \nAFTER QI IMPLEMENTATION IN UGANDA',
+         subtitle = 'Facility and community Index testing for peds and adolescents (<20)',
+         caption = glue("Source: {msd_source}
+                     US Agency for International Development"))
+    
+  si_save("Graphics/UGA_Index_peds_trends2.svg", 
           width = 5.75, height = 4)
   
