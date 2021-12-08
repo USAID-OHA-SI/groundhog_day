@@ -18,7 +18,7 @@
   library(ggtext)
   library(glue)
   library(ggtext)
-  library(ggwaffle)
+  library(waffle)
 
 
 # GLOBAL VARIABLES --------------------------------------------------------
@@ -217,7 +217,7 @@
       si_style_ygrid() +
       theme(legend.position = "none") 
     
-      si_save("Graphics/FY21Q3_PrEP_NEW_trends_ou_gaps.svg", height = 4, width = 6.7, scale = 1.4)
+      si_save(glue("Graphics/{curr_pd}_PrEP_NEW_trends_ou_gaps.svg"), height = 4, width = 6.7, scale = 1.4)
 
       
 # Try a waffle chart of remaining ous - Cleaned up in AI
@@ -233,11 +233,11 @@
     
     df_prep_waffle %>% 
       ggplot(aes(fill = ou, values = value)) +
-      geom_waffle(color = "white", size = .25, n_rows = 10, flip = T, make_proportional = T)  +
+      waffle::geom_waffle(color = "white", size = .25, n_rows = 10, flip = T, make_proportional = T)  +
       scale_fill_si(palette = "scooter", discrete = T, reverse = F, alpha = 0.75) +
       si_style_map() 
     
-    si_save("Graphics/FY21Q3_PrEP_NEW_ou_gaps.svg", height = 4, width = 4, scale = 1.25)
+    si_save(glue("Graphics/{curr_pd}_PrEP_NEW_ou_gaps.svg"), height = 4, width = 4, scale = 1.25)
     
     
 
