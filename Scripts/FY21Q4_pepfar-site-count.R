@@ -98,7 +98,11 @@
                 values_fill = 0) %>% 
     adorn_totals(where = c("row", "col"))
     
-  
+
+# EXPORT ------------------------------------------------------------------
+
+  write_csv(df_sites, "Dataout/FY21Q4i_PEPFAR-sites-and-types.csv", na = "")
+    
 # PREP WORK ---------------------------------------------------------------
 
 
