@@ -41,9 +41,9 @@
              "dimension=pe:", cy_pd, "&", #period
              "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
              "dimension=SH885jaRe0o&", #Funding Mechanism
-             "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH", #Technical Area
+             "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH&", #Technical Area
              "dimension=IeMmjHyBUpi:Jh0jDM5yQ2E&", #Targets / Results - results
-             "dimension=RUkVjD3BsS1&", #Top Level
+             # "dimension=RUkVjD3BsS1&", #Top Level
              "dimension=mINJi7rR1a6:", type_uid,"&", #Type of organisational unit
              "dimension=TWXpUVE2MqL&", #Support Type
              "displayProperty=SHORTNAME&skipMeta=false&hierarchyMeta=true")
