@@ -3,7 +3,7 @@
 # PURPOSE:  identify number of PEPFAR sites reporting
 # LICENSE:  MIT
 # DATE:     2021-12-10
-# UPDATED: 
+# UPDATED:  2022-01-07
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -54,7 +54,13 @@
       df <- df %>%
         dplyr::filter(`Technical Area` %in% c("SC_CURR", "SC_ARVDISP", "HRH_PRE") | Value != 0) %>%
         dplyr::mutate(operatingunit = ifelse(stringr::str_detect(orglvl_3, "Region"), paste0(orglvl_3, "/", orglvl_4), orglvl_3)) %>%
-        dplyr::distinct(operatingunit, orgunituid, sitetype = `Type of organisational unit`, indicatortype = `Support Type`)
+        dplyr::distinct(operatingunit, orgunituid, sitetype = `Type of organisational unit`, indicatortype = `Support Type`, indicator = `Technical Area`)
+      
+      df <- df %>% 
+        dplyr::mutate(x = TRUE) %>% 
+        tidyr::pivot_wider(names_from = indicator,
+                           names_glue = "has_{tolower(indicator)}",
+                           values_from = x)
     }
     
     return(df)
@@ -76,7 +82,7 @@
 # RUN API -----------------------------------------------------------------
 
 
-  df_sites <- ctry_list %>% 
+  df_sites <- ctry_list %>%
     pmap_dfr(~pull_sites(..1, ..2, ..3, ..4, 
                          username = datim_user(), password = datim_pwd()))
     
@@ -101,7 +107,68 @@
 
 # EXPORT ------------------------------------------------------------------
 
-  write_csv(df_sites, "Dataout/FY21Q4i_PEPFAR-sites-and-types.csv", na = "")
+  df_ind <- tribble(
+    ~category,      ~indicator,
+    "Prevention",     "AGYW_PREV",
+    "Prevention",    "FPINT_SITE",
+    "Prevention",      "GEND_GBV",
+    "Prevention",        "KP_MAT",
+    "Prevention",       "KP_PREV",
+    "Prevention",      "OVC_SERV",
+    "Prevention",       "PP_PREV",
+    "Prevention",     "PrEP_CURR",
+    "Prevention",      "PrEP_NEW",
+    "Prevention",       "TB_PREV",
+    "Prevention",     "VMMC_CIRC",
+    "Testing",     "CXCA_SCRN",
+    "Testing",     "HTS_INDEX",
+    "Testing",    "HTS_RECENT",
+    "Testing",      "HTS_SELF",
+    "Testing",       "HTS_TST",
+    "Testing",   "OVC_HIVSTAT",
+    "Testing",     "PMTCT_EID",
+    "Testing",      "PMTCT_FO",
+    "Testing", "PMTCT_HEI_POS",
+    "Testing",    "PMTCT_STAT",
+    "Testing",       "TB_STAT",
+    "Treatment",       "CXCA_TX",
+    "Treatment",     "PMTCT_ART",
+    "Treatment",        "TB_ART",
+    "Treatment",       "TX_CURR",
+    "Treatment",         "TX_ML",
+    "Treatment",        "TX_NEW",
+    "Treatment",        "TX_RTT",
+    "Treatment",         "TX_TB",
+    "Viral Load Suppression",       "TX_PVLS",
+    "Health Systems",      "EMR_SITE",
+    "Health Systems",       "HRH_PRE",
+    "Health Systems",     "LAB_PTCQI",
+    "Health Systems",    "SC_ARVDISP",
+    "Health Systems",       "SC_CURR")
+  
+  df_ind_adj <- df_ind %>% 
+    mutate(category = recode(category,
+                             "Prevention" = "prev",
+                             "Testing" = "test",
+                             "Treatment" = "treat",
+                             "Viral Load Suppression" = "vls",
+                             "Health Systems" = "hss"),
+           indicator = paste0("has_", tolower(indicator)))
+         
+  ind_order <- df_ind_adj %>% 
+    mutate(indicator = str_replace(indicator, "has", paste0("has_", category))) %>% 
+    pull(indicator)
+  
+  df_sites <- df_sites %>% 
+    pivot_longer(starts_with("has_"), names_to = "indicator", values_drop_na = TRUE) %>% 
+    tidylog::left_join(df_ind_adj) %>% 
+    mutate(indicator = str_replace(indicator, "has", paste0("has_", category)),
+           indicator = factor(indicator, ind_order)) %>% 
+    arrange(indicator) %>% 
+    select(-category) %>% 
+    pivot_wider(names_from = indicator)
+    
+  write_csv(df_sites, "Dataout/FY21Q4c_PEPFAR-sites-and-types.csv", na = "")
     
 # PREP WORK ---------------------------------------------------------------
 
@@ -155,7 +222,7 @@
   #           "Health Systems",       "HRH_PRE",
   #           "Health Systems",     "LAB_PTCQI",
   #           "Health Systems",    "SC_ARVDISP",
-  #           "Health Systems",       "SC_CURR") 
+  #           "Health Systems",       "SC_CURR")
   # 
   # #join indicators with %>% 
   # lst_ind_uid <- df_ind %>% 
