@@ -3,7 +3,7 @@
 # PURPOSE:  valuing the size of a site shift
 # LICENSE:  MIT
 # DATE:     2022-01-06
-# UPDATED: 
+# UPDATED:  2022-01-07
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -155,6 +155,42 @@
   
   si_save("Images/FY21Q4_ZAF-agency-psnu_txcurr-trend.png")
   
+  
+  df_zaf_ethekwini <- df_zaf_agency_psnu %>%
+    filter(psnu_adj == "eThekwini") %>%
+    mutate(fundingagency = "All PEPFAR") %>% 
+    group_by(period, fundingagency, psnu, psnu_adj) %>% 
+    summarise(across(c(tx_curr, tx_net_new), sum, na.rm = TRUE),
+              .groups = "drop")
+    
+  
+  df_zaf_agency_psnu %>%
+    filter(psnu_adj == "eThekwini") %>% 
+    bind_rows(df_zaf_ethekwini) %>% 
+    mutate(fundingagency = factor(fundingagency, c("All PEPFAR", "USAID", "CDC")),
+           tx_net_new = case_when(fundingagency == "All PEPFAR" ~ tx_net_new)) %>% 
+    ggplot(aes(period, tx_curr, fill = fundingagency)) +
+    geom_hline(yintercept = 0) +
+    geom_col(alpha = .7) +
+    geom_errorbar(aes(ymin = tx_net_new, ymax = tx_net_new), size = 1.5, color = burnt_sienna) +
+    facet_grid(fundingagency~., switch = "y") +
+    scale_y_continuous(labels = number_format(1, scale = 1e-3, suffix = "K")) +
+    scale_fill_manual(values = c("CDC" = scooter, "USAID" = denim, "All PEPFAR" = grey50k)) +
+    scale_x_discrete(labels= pds) + 
+    labs(x = NULL, y = NULL,
+         title = "eThekwini overall treatment level remained constant after transition" %>% toupper,
+         subtitle = glue("eThekwini Municipality | <span style='color:{grey50k}'>**PEPFAR**</span>/<span style='color:{denim}'>**USAID**</span>/<span style='color:{scooter}'>**CDC**</span> TX_CURR and <span style='color:{burnt_sienna}'>**TX_NET_NEW**</span>"),
+         caption =  glue("{source}
+                     SI analytics: {paste(authors, collapse = '/')}
+                     US Agency for International Development")) +
+    si_style_ygrid() +
+    theme(legend.position = "none",
+          plot.subtitle = element_markdown(),
+          panel.spacing.y = unit(.4, "lines"),
+          strip.placement = "outside",
+          strip.text.y = element_text(family = "Source Sans Pro SemiBold", hjust =.5))
+  
+  si_save("Images/FY21Q4_ZAF-eThekwini_txcurr-nn-trend.png")
   
   
   
