@@ -25,7 +25,7 @@ table_out<-"GitHub/stacks-of-hondos/Images/Global Performance"
 df_fsd<-df_fsd%>%
   prep_fsd()%>%
   filter(fundingagency=="USAID")%>%
-  dplyr::filter(fiscal_year=="2020" | fiscal_year=="2021")%>%
+  #dplyr::filter(fiscal_year=="2020"| fiscal_year=="2021")%>%
   group_by(operatingunit,fiscal_year)%>%
   #mutate_at(vars(cop_budget_total,expenditure_amt),~replace_na(.,0))%>%
   summarise_at(vars(cop_budget_total,expenditure_amt), sum, na.rm = TRUE)%>%
@@ -63,9 +63,12 @@ df_b14<-df_fsd%>%
   
 
   
-#output of table========================================================
-table_out<-"GitHub/stacks-of-hondos/Images/Global Performance"
-get_global_usaid_ou(df_fsd)%>%
-  gtsave(., path=table_out, filename="global performance_usaid.png")
 
 
+#futZING WITH A SPARKLINE YOU CAN IGNORE
+gt_sparkline_tab <- df_fsd %>%
+  dplyr::group_by(operatingunit) %>%
+  # must end up with list of data for each row in the input dataframe
+  dplyr::summarize(er_data = list(cop_budget_total), .groups = "drop") %>%
+  gt() %>%
+  gt_sparkline(er_data)
