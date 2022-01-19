@@ -3,7 +3,7 @@
 # PURPOSE:  Epi control trend graphs
 # LICENSE:  MIT
 # DATE:     2021-12-01
-# UPDATED:  
+# UPDATED:  2022-01-18 (to update for just 6 OUs)
 # NOTE:     derived from agitprop/24b_HIV_epi_control_country.R and catch-22/gpm_country_historic_epi-control
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -176,4 +176,4 @@ df_viz_cntry %>%
         panel.spacing.y = unit(0, "pt"),
         plot.title = element_markdown())
 
-si_save("Graphics/fy21q4-pepfar-epi-control-6ou.svg")
+si_save("Graphics/fy21q4-pepfar-epi-control-6ou.svg", width = 5)
