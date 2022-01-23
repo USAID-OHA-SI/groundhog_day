@@ -3,7 +3,7 @@
 # PURPOSE:  identify number of PEPFAR sites reporting
 # LICENSE:  MIT
 # DATE:     2021-12-10
-# UPDATED:  2022-01-07
+# UPDATED:  2022-01-23
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -11,6 +11,7 @@
   library(glitr) #remotes::install_github("USAID-OHA-SI/glitr", build_vignettes = TRUE)
   library(glamr) #remotes::install_github("USAID-OHA-SI/glamr", build_vignettes = TRUE)
   library(janitor)
+  library(glue)
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
@@ -43,18 +44,36 @@
              "dimension=SH885jaRe0o&", #Funding Mechanism
              "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH&", #Technical Area
              "dimension=IeMmjHyBUpi:Jh0jDM5yQ2E&", #Targets / Results - results
-             # "dimension=RUkVjD3BsS1&", #Top Level
+             "dimension=HWPJnUTMjEq&", #Disaggregation Type
              "dimension=mINJi7rR1a6:", type_uid,"&", #Type of organisational unit
              "dimension=TWXpUVE2MqL&", #Support Type
              "displayProperty=SHORTNAME&skipMeta=false&hierarchyMeta=true")
     
-    df <- glamr::datim_process_query(core_url, username, password)
     
+    if(org_type == "agyw"){
+      core_url <-
+        paste0(baseurl,"api/29/analytics?",
+               "dimension=pe:", cy_pd, "&", #period
+               "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
+               # "dimension=SH885jaRe0o&", #Funding Mechanism - no used with AGYW
+               "dimension=LxhLO68FcXm:ELZsYsR89rn&", #Technical Area - AGYW
+               "dimension=IeMmjHyBUpi:Jh0jDM5yQ2E&", #Targets / Results - results
+               "dimension=HWPJnUTMjEq&", #Disaggregation Type
+               "dimension=mINJi7rR1a6:", type_uid,"&", #Type of organisational unit
+               "dimension=TWXpUVE2MqL&", #Support Type
+               "displayProperty=SHORTNAME&skipMeta=false&hierarchyMeta=true")
+    }
+    
+    df <- glamr::datim_process_query(core_url, username, password)
+
     if(!is.null(df)){
       df <- df %>%
         dplyr::filter(`Technical Area` %in% c("SC_CURR", "SC_ARVDISP", "HRH_PRE") | Value != 0) %>%
         dplyr::mutate(operatingunit = ifelse(stringr::str_detect(orglvl_3, "Region"), paste0(orglvl_3, "/", orglvl_4), orglvl_3)) %>%
-        dplyr::distinct(operatingunit, orgunituid, sitetype = `Type of organisational unit`, indicatortype = `Support Type`, indicator = `Technical Area`)
+        dplyr::select(-orglvl_1, -orglvl_2) %>% 
+        tidyr::unite(orgunit_hierarchy, starts_with("orglvl"), sep = "/", remove = FALSE) %>% 
+        dplyr::mutate(orgunit_hierarchy = paste(orgunit_hierarchy, `Organisation unit`, sep = "/")) %>% 
+        dplyr::distinct(operatingunit, orgunituid, orgunit_hierarchy, sitetype = `Type of organisational unit`, indicatortype = `Support Type`, indicator = `Technical Area`)
       
       df <- df %>% 
         dplyr::mutate(x = TRUE) %>% 
@@ -77,6 +96,13 @@
     pivot_longer(c(community, facility),
                  names_to = "type",
                  values_to = "level") 
+  
+  #add a separate level for agyw
+  ctry_list <- ctry_list %>% 
+    bind_rows(ctry_list %>%
+                filter(type == "community") %>% 
+                mutate(type = "agyw"))  %>% 
+    arrange(countryname, desc(type))
   
 
 # RUN API -----------------------------------------------------------------
@@ -159,7 +185,7 @@
     mutate(indicator = str_replace(indicator, "has", paste0("has_", category))) %>% 
     pull(indicator)
   
-  df_sites <- df_sites %>% 
+  df_sites_wide <- df_sites %>% 
     pivot_longer(starts_with("has_"), names_to = "indicator", values_drop_na = TRUE) %>% 
     tidylog::left_join(df_ind_adj) %>% 
     mutate(indicator = str_replace(indicator, "has", paste0("has_", category)),
@@ -168,7 +194,17 @@
     select(-category) %>% 
     pivot_wider(names_from = indicator)
     
-  write_csv(df_sites, "Dataout/FY21Q4c_PEPFAR-sites-and-types.csv", na = "")
+  
+  pd <- pepfar_data_calendar %>%
+    filter(entry_close <= Sys.Date()) %>%
+    slice_tail() %>%
+    mutate(period = glue::glue("FY{stringr::str_sub(fiscal_year, -2)}Q{quarter}{stringr::str_sub(type, end = 1)}")) %>% 
+    pull()
+                                      
+  write_csv(df_sites_wide, 
+            paste0("Dataout/", pd, "_PEPFAR-sites-and-types_", 
+                   format(Sys.Date(), "%Y%m%d"), ".csv"), 
+            na = "")
     
 # PREP WORK ---------------------------------------------------------------
 
