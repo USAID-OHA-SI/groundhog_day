@@ -19,6 +19,7 @@
   library(ICPIutilities)
   library(googlesheets4)
 library(readxl)
+library(here)
   
 
 
@@ -35,7 +36,7 @@ View(df_outlay)
 
 # MUNGE -------------------------------------------------------------------
 #create outlay %
-  df_oe <- df_outlay %>% 
+  df_oe <- df_outlays %>% 
    
     mutate(agg_outlays = na_if(agg_outlays, 0),
            out_rate = agg_outlays/`COP_planning _levels`)
@@ -47,7 +48,7 @@ View(df_outlay)
   df_oe %>% 
     ggplot(aes(FY_Quarter, `COP_planning _levels`)) +
     geom_col(fill = "#e6e6e6") +
-    geom_col(aes(y = agg_outlays), fill = "#7ecfc0", na.rm = TRUE) +
+    geom_col(aes(y = agg_outlays), fill = "#2057a7", na.rm = TRUE) +
     geom_errorbar(aes(x = FY_Quarter, ymin = `COP_planning _levels`, ymax =`COP_planning _levels`),
                   color = "#808080") +
     geom_hline(yintercept = 0, color = "#808080") +
@@ -59,9 +60,11 @@ View(df_outlay)
          caption = "Outlay amount against COP Budget total
          Source: Phoenix and WCF data as of March 4, 2021") +
     si_style_nolines()
-  
+  ggsave("Images/OutlayExecution.png")
 
 # EXPORT ------------------------------------------------------------------
 
-  si_save("Documents/OutlayExecution.png", width = 7.17, height = 4.22)
+  
+  ggsave("OutlayExecution.png", width=7.17, height=4.22, units="in")
+  si_save("Images/OutlayExecution.png", width = 7.17, height = 4.22)
   

@@ -1,8 +1,8 @@
 # PROJECT:  FY21Q1 Review
-# AUTHOR:   A.Chafetz | USAID
-# PURPOSE:  USAID Budget Execution Trends
+# AUTHOR:   B. Kasdan | USAID
+# PURPOSE:  USAID Outlay Trends
 # LICENSE:  MIT
-# DATE:     2021-03-05
+# DATE:     2021-03-08
 # UPDATED: 
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -18,66 +18,50 @@
   library(glue)
   library(ICPIutilities)
   library(googlesheets4)
+library(readxl)
   
 
 
-# GLOBAL VARIABLES --------------------------------------------------------
 
-  sch_partner_sheet <- as_sheets_id("1mCJWDo4FPW2cQ6LpbsSjtnRjT7sUpPEOqxfT2zQNo64")
-
-# LOAD CREDENTIALS --------------------------------------------------------
-
-  load_secrets()
 
 # IMPORT ------------------------------------------------------------------
 
   #import
-  df_fsd <- si_path() %>% 
-      return_latest("Financial") %>% 
-      read_msd()   
+
+df_outlay <- read_excel("Datasets/COP21 Outlays.xlsx", 
+                        col_types = c("text", "numeric", "numeric"))
+View(df_outlay)
   
-  #list of GHSC mechanism to exclude
-  sch_list <- read_sheet(sch_partner_sheet) %>% 
-    pull(`Mech Code`)
 
 # MUNGE -------------------------------------------------------------------
+#create outlay %
+  df_oe <- df_outlay %>% 
+   
+    mutate(agg_outlays = na_if(agg_outlays, 0),
+           out_rate = agg_outlays/`COP_planning _levels`)
 
-  #aggregate after filtering to USAID, excluding M&O and SC 
-  df_be <- df_fsd %>% 
-    filter(fundingagency == "USAID",
-           record_type != "Management and Operations",
-           !mech_code %in% sch_list) %>% 
-    group_by(fiscal_year) %>% 
-    summarise(across(c(cop_budget_total, expenditure_amt), sum, na.rm = TRUE)) %>% 
-    ungroup()
-  
-  #clean up
-  df_be <- df_be %>% 
-    mutate(display_year = glue("FY{str_sub(fiscal_year, 3,4)}"),
-           expenditure_amt = na_if(expenditure_amt, 0),
-           ex_rate = expenditure_amt/cop_budget_total)
+
 
 # PLOT --------------------------------------------------------------------
 
-  df_be %>% 
-    ggplot(aes(display_year, cop_budget_total)) +
-    geom_col(fill = trolley_grey_light) +
-    geom_col(aes(y = expenditure_amt), fill = genoa_light, na.rm = TRUE) +
-    geom_errorbar(aes(x = display_year, ymin = cop_budget_total, ymax =cop_budget_total),
-                  color = trolley_grey) +
-    geom_hline(yintercept = 0, color = trolley_grey) +
-    geom_hline(yintercept = seq(.5e9, 1.5e9, .5e9), color = "white", linetype = "dashed") +
+  df_oe %>% 
+    ggplot(aes(FY_Quarter, `COP_planning _levels`)) +
+    geom_col(fill = "#e6e6e6") +
+    geom_col(aes(y = agg_outlays), fill = "#7ecfc0", na.rm = TRUE) +
+    geom_errorbar(aes(x = FY_Quarter, ymin = `COP_planning _levels`, ymax =`COP_planning _levels`),
+                  color = "#808080") +
+    geom_hline(yintercept = 0, color = "#808080") +
+    geom_hline(yintercept = seq(1.0e9, 2.0e9, 1.0e9), color = "white", linetype = "dashed") +
     scale_x_discrete(expand = c(.05, .05)) + 
     scale_y_continuous(labels = unit_format(.1, unit = "B", scale = 1e-9)) +
     labs(x = NULL, y = NULL,
-         subtitle = "USAID Budget Execution (USD)",
-         caption = "Expenditure amount against COP Budget total
-         Excludes M&O and commodities
-         Source: FY20Q1i FSD") +
+         subtitle = "USAID Outlay Execution (USD)",
+         caption = "Outlay amount against COP Budget total
+         Source: Phoenix and WCF data as of March 4, 2021") +
     si_style_nolines()
   
 
 # EXPORT ------------------------------------------------------------------
 
-  si_save("Images/BudgetExecution.png", width = 7.17, height = 4.22)
+  si_save("Images/OutlayExecution.png", width = 7.17, height = 4.22)
   

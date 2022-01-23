@@ -25,7 +25,7 @@ table_out<-"GitHub/stacks-of-hondos/Images/Global Performance"
 df_fsd<-df_fsd%>%
   prep_fsd()%>%
   filter(fundingagency=="USAID")%>%
-  #dplyr::filter(fiscal_year=="2020"| fiscal_year=="2021")%>%
+  dplyr::filter(fiscal_year=="2020"| fiscal_year=="2021")%>%
   group_by(operatingunit,fiscal_year)%>%
   #mutate_at(vars(cop_budget_total,expenditure_amt),~replace_na(.,0))%>%
   summarise_at(vars(cop_budget_total,expenditure_amt), sum, na.rm = TRUE)%>%
@@ -65,10 +65,31 @@ df_b14<-df_fsd%>%
   
 
 
-#futZING WITH A SPARKLINE YOU CAN IGNORE
-gt_sparkline_tab <- df_fsd %>%
-  dplyr::group_by(operatingunit) %>%
-  # must end up with list of data for each row in the input dataframe
-  dplyr::summarize(er_data = list(cop_budget_total), .groups = "drop") %>%
-  gt() %>%
-  gt_sparkline(er_data)
+#vulnerable countries
+country<-c("Burma","Ethiopia","Eswatini","Haiti", "South Sudan", "Ukraine")
+df_fsd<-df_fsd%>%
+  prep_fsd()%>%
+  filter(fundingagency=="USAID",
+         countryname %in% country)%>%
+  dplyr::filter(fiscal_year=="2020"| fiscal_year=="2021")%>%
+  group_by(countryname,fiscal_year)%>%
+  #mutate_at(vars(cop_budget_total,expenditure_amt),~replace_na(.,0))%>%
+  summarise_at(vars(cop_budget_total,expenditure_amt), sum, na.rm = TRUE)%>%
+  dplyr::mutate(budget_execution=expenditure_amt/cop_budget_total)%>%
+  ungroup()%>%
+  pivot_wider(names_from = fiscal_year,values_from = cop_budget_total:budget_execution, values_fill = 0)%>%
+  dplyr::relocate(expenditure_amt_2020, .before = cop_budget_total_2020) %>%
+  dplyr::relocate(expenditure_amt_2021, .before = cop_budget_total_2021) %>%
+  dplyr::relocate(budget_execution_2021, .after = cop_budget_total_2021)%>%
+  dplyr::relocate(budget_execution_2020, .after = cop_budget_total_2020) %>%
+  arrange(desc(budget_execution_2021))
+
+df_fsd%>%
+  ea_style()%>%
+  cols_label( #update GT to check on tidy select), also look at clean_names, also potentially case_when
+    countryname = "Country")%>%
+  
+  tab_header(
+    title = ("USAID COP19 & COP20 Program Financial Summary in Countries Facing External and Political Threats. All Countries But Haiti Fell Below USAID's 93% Global Budget Execution Total "),
+    subtitle = legend_chunk)%>%
+  gtsave(., path=table_out, filename="global performance_usaid_external threats.png")
