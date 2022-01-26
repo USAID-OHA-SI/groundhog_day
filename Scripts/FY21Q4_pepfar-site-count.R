@@ -3,7 +3,29 @@
 # PURPOSE:  identify number of PEPFAR sites reporting
 # LICENSE:  MIT
 # DATE:     2021-12-10
-# UPDATED:  2022-01-23
+# UPDATED:  2022-01-25
+
+
+# NOTES AND ASSUMPTIONS ---------------------------------------------------
+
+# 1. Community + Facility - pulls MER results (no targets) from  DATIM at the 
+#    **level of reporting**, either community or facility. "Military" and "Other 
+#    organisation unit  type" that are also available in the DATIM dimension, 
+#     "Type of organisational unit" are not included.
+# 2. Time period - pulls data from the last four quarters available 
+# 3. Disaggregates - includes reporting on any disaggregate ("Disaggregation 
+#    Type) for indicators, not just their  totals (Numerator or Denominator) 
+#    using the "Top Level" dimension. 
+# 4. Indicators - includes all the 35 out of the 36 MER indicators from the 2.5 MER 
+#    Indicator Reference (p4). HRH_PRE is excluded since it is reported "Above-Site".
+#    No Host Country Indicators (*_NAT) are included. AGWY_PREV has no mechanisms 
+#    associated with it, so it uses a separate API that excludes "Funding Mechanism."
+# 5. Additional Dimensions - includes indicator type ("Support Type") to total
+#    by DSD, TA, Central, or a combination of these.
+# 6. Nulls, Zero, Negative Numbers - Filters out NULLs and zeros, with the 
+#    exception of SC_CURR, SC_ARVDISP, and HRH_PRE, which can have zero values.
+# 7. Mil Sites - excludes military sites that exist in the list on PEPFAR 
+#    Sharepoint (ICPI > Clusters > DAQ > PEPFAR Site Types > mil_sites.csv)
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -12,6 +34,7 @@
   library(glamr) #remotes::install_github("USAID-OHA-SI/glamr", build_vignettes = TRUE)
   library(janitor)
   library(glue)
+  library(lubridate)
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
@@ -24,22 +47,28 @@
   
 # DATIM API FUNCTION ------------------------------------------------------
 
-  
   pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
-                         fy_pd = 2021, 
                          username, password, 
                          baseurl = "https://final.datim.org/"){
     
     print(paste("Running DATIM API for", ou_name, org_type,  Sys.time(),
                 sep = " ... "))
     
-    cy_pd <- paste0(fy_pd-1, "Oct", collapse = ";")
+    prior_4pds <- glamr::pepfar_data_calendar %>% 
+      dplyr::filter(entry_close < Sys.Date(),
+                    type == "initial") %>%
+      dplyr::mutate(cy_pd = lubridate::ymd(entry_open) - months(3),
+                    cy_pd = cy_pd %>% 
+                      lubridate::quarter(with_year = TRUE) %>% 
+                      stringr::str_replace("\\.", "Q")) %>%
+      dplyr::pull() %>% 
+      paste0(collapse = ";")
     
     type_uid <- ifelse(org_type == "facility", "POHZmzofoVx", "PvuaP6YALSA") #excludes military & Other organisation unit type
     
     core_url <-
       paste0(baseurl,"api/29/analytics?",
-             "dimension=pe:", cy_pd, "&", #period
+             "dimension=pe:", prior_4pds, "&", #period
              "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
              "dimension=SH885jaRe0o&", #Funding Mechanism
              "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH&", #Technical Area
@@ -53,9 +82,9 @@
     if(org_type == "agyw"){
       core_url <-
         paste0(baseurl,"api/29/analytics?",
-               "dimension=pe:", cy_pd, "&", #period
+               "dimension=pe:", prior_4pds, "&", #period
                "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
-               # "dimension=SH885jaRe0o&", #Funding Mechanism - no used with AGYW
+               # "dimension=SH885jaRe0o&", #Funding Mechanism - not used with AGYW
                "dimension=LxhLO68FcXm:ELZsYsR89rn&", #Technical Area - AGYW
                "dimension=IeMmjHyBUpi:Jh0jDM5yQ2E&", #Targets / Results - results
                "dimension=HWPJnUTMjEq&", #Disaggregation Type
@@ -107,18 +136,29 @@
 
 # RUN API -----------------------------------------------------------------
 
-
   df_sites <- ctry_list %>%
     pmap_dfr(~pull_sites(..1, ..2, ..3, ..4, 
                          username = datim_user(), password = datim_pwd()))
-    
 
 # SITE COUNT --------------------------------------------------------------
 
+  #exclude military sites that shouldn't be sites, rather
+  lst_mil <- read_delim("Data/mil_sites.csv", delim = "|", 
+                        col_types = c(.default = "c")) %>% 
+    pull(organisation_unit_uid)
+  df_sites %>% 
+    filter(orgunituid %in% lst_mil) %>% 
+    distinct(orgunituid) %>% 
+    nrow()
+  df_sites <- df_sites %>% 
+    filter(orgunituid %ni% lst_mil)
+  
+  #total PEPFAR site count
   df_sites %>% 
     distinct(orgunituid) %>% 
     count()
  
+  #site count table by site and indicator type
   df_sites %>% 
     group_by(orgunituid) %>% 
     mutate(indicatortype = ifelse(n() > 1, "multi", indicatortype)) %>% 
@@ -133,6 +173,7 @@
 
 # EXPORT ------------------------------------------------------------------
 
+  #indicators from MER 2.5
   df_ind <- tribble(
     ~category,      ~indicator,
     "Prevention",     "AGYW_PREV",
@@ -172,6 +213,7 @@
     "Health Systems",    "SC_ARVDISP",
     "Health Systems",       "SC_CURR")
   
+  #append prefix to indicator names for matching/ordering
   df_ind_adj <- df_ind %>% 
     mutate(category = recode(category,
                              "Prevention" = "prev",
@@ -181,10 +223,12 @@
                              "Health Systems" = "hss"),
            indicator = paste0("has_", tolower(indicator)))
          
+  #use as ordered list for export
   ind_order <- df_ind_adj %>% 
     mutate(indicator = str_replace(indicator, "has", paste0("has_", category))) %>% 
     pull(indicator)
   
+  #reshape to make wide rather than long
   df_sites_wide <- df_sites %>% 
     pivot_longer(starts_with("has_"), names_to = "indicator", values_drop_na = TRUE) %>% 
     tidylog::left_join(df_ind_adj) %>% 
@@ -194,13 +238,14 @@
     select(-category) %>% 
     pivot_wider(names_from = indicator)
     
-  
+  #identify period for filename
   pd <- pepfar_data_calendar %>%
     filter(entry_close <= Sys.Date()) %>%
     slice_tail() %>%
     mutate(period = glue::glue("FY{stringr::str_sub(fiscal_year, -2)}Q{quarter}{stringr::str_sub(type, end = 1)}")) %>% 
     pull()
-                                      
+        
+  #export as csv
   write_csv(df_sites_wide, 
             paste0("Dataout/", pd, "_PEPFAR-sites-and-types_", 
                    format(Sys.Date(), "%Y%m%d"), ".csv"), 
