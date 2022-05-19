@@ -3,7 +3,7 @@
 ## PURPOSE: Cascade Partner Review - PMTCT
 ## LICENSE: MIT
 ## DATE:    2021-02-09
-## UPDATED: 
+## UPDATED: 2022-05-19
 
 
 # DEPENDENCIES ------------------------------------------------------------
@@ -14,7 +14,7 @@ library(glamr)
 library(glitr)
 library(scales)
 library(extrafont)
-library(ICPIutilities)
+library(gophr)
 library(glue)
 library(tidytext)
 library(patchwork)
@@ -46,18 +46,29 @@ library(ggtext)
               "<=02 Months" = scooter,
               "02 - 12 Months" = old_rose)
 
+  #current period
+  curr_pd <- source_info(return = "period")
+  
 # IMPORT DATA -------------------------------------------------------------
 
   #import
-    df_pmtct <- read_msd("data/Genie-PSNUByIMs-Tanzania-Daily-2021-02-09.zip")
-
+    # df_pmtct <- read_msd("data/Genie-PSNUByIMs-Tanzania-Daily-2021-02-09.zip")\
+  
+    df_pmtct <- si_path() %>% 
+      return_latest("OU_IM") %>% 
+      read_msd() %>% 
+      filter(operatingunit == "Tanzania",
+             funding_agency == "USAID",
+             indicator %in% c("PMTCT_ART", "PMTCT_EID", "PMTCT_EID_Less_Equal_Two_Months", 
+                              "PMTCT_HEI_POS", "PMTCT_HEI_POS_2MO", "PMTCT_HEI_POS_ART", 
+                              "PMTCT_STAT", "PMTCT_STAT_POS"))
+    
 
 # MUNGE -------------------------------------------------------------------
 
   #denom
     df_pmtct <- df_pmtct %>% 
-      mutate(indicator = ifelse(numeratordenom == "D", glue("{indicator}_D"), indicator))
-      
+      clean_indicator()
       
   #coverage
     df_cov <- df_pmtct %>% 
@@ -123,13 +134,13 @@ library(ggtext)
         group_by(fiscal_year, group_cas, indicator_cas, disagg_cas) %>% 
         summarise(across(starts_with("qtr"), sum, na.rm = TRUE)) %>% 
         ungroup() %>% 
-        reshape_msd(clean = TRUE) %>% 
-        filter(period == "FY21Q1") 
+        reshape_msd() %>% 
+        filter(period == curr_pd) 
     
   
     v_c <- df_viz %>% 
       filter(group_cas == "Coverage") %>% 
-      ggplot(aes(indicator_cas, val, fill = disagg_cas)) +
+      ggplot(aes(indicator_cas, value, fill = disagg_cas)) +
       geom_col(alpha = .9) +
       facet_grid(~ group_cas, scales = "free", space = "free") +
       scale_y_continuous(labels = comma) +
@@ -143,7 +154,7 @@ library(ggtext)
     
     v_l <- df_viz %>% 
       filter(group_cas == "Linkage") %>% 
-      ggplot(aes(indicator_cas, val, fill = disagg_cas)) +
+      ggplot(aes(indicator_cas, value, fill = disagg_cas)) +
       geom_col(alpha = .9) +
       facet_grid(~ group_cas, scales = "free", space = "free") +
       scale_y_continuous(labels = comma) +
@@ -157,7 +168,7 @@ library(ggtext)
     
     v_h <- df_viz %>% 
       filter(group_cas == "HEI") %>% 
-      ggplot(aes(indicator_cas, val, fill = disagg_cas)) +
+      ggplot(aes(indicator_cas, value, fill = disagg_cas)) +
       geom_col(alpha = .9) +
       facet_grid(~ group_cas, scales = "free", space = "free") +
       scale_y_continuous(labels = comma) +
@@ -190,6 +201,6 @@ library(ggtext)
             strip.text = element_blank(),
             legend.position = "none")
 
-    si_save("Images/FY21Q1_TZA_PMTCT-Cascade.png")    
+    si_save(glue("Images/{curr_pd}_TZA_PMTCT-Cascade.png"))    
     
     
