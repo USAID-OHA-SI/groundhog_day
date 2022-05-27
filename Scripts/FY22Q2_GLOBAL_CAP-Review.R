@@ -3,7 +3,7 @@
 # PURPOSE:  
 # LICENSE:  MIT
 # DATE:     2022-05-04
-# UPDATED:  2022-05-17
+# UPDATED:  2022-05-27
 
 # DATIM REPORT PARAMETERS -------------------------------------------------
 
@@ -37,30 +37,29 @@
   load_secrets("datim")
   
   ind_sel <- c("PrEP_NEW", "VMMC_CIRC", "OVC_SERV",  "HTS_TST_POS", "TX_NEW", 
-               "TX_CURR", "TX_PVLS_D")
+               "TX_CURR", "TX_CURR_Lag2", "TX_PVLS_D", "VL Coverage")
 
-  # file_path <-  si_path() %>% return_latest("OU_IM")
-  file_path <- file.path(si_path("path_downloads"), 
-                         "Genie-OUByIMs-Global-Daily-2022-05-16.zip")
+  file_path <-  si_path() %>% return_latest("OU_IM")
+  # file_path <- file.path(si_path("path_downloads"), 
+  #                        "Genie-OUByIMs-Global-Daily-2022-05-16.zip")
+  
+  msd_source <- source_info(file_path)
+  
+  curr_fy <- source_info(file_path, return = "fiscal_year")
+  curr_qtr <- source_info(file_path, return = "quarter")
+  curr_pd <- source_info(file_path, return = "period")
   
 # IMPORT ------------------------------------------------------------------
   
   df <- read_msd(file_path) 
 
-  curr_fy <- identifypd(df, "year")
-  curr_qtr <- identifypd(df, "quarter")
-  curr_pd <- identifypd(df)
-  
-  msd_source <- source_info(file_path)
-  
 # MUNGE -------------------------------------------------------------------
 
   df_cap <- df %>% 
+    pluck_totals() %>% 
     clean_indicator() %>% 
     filter(funding_agency == "USAID",
-           indicator %in% ind_sel,
-           standardizeddisaggregate %in% c("Total Numerator", "Total Denominator"),
-           fiscal_year == curr_fy) %>%
+           indicator %in% ind_sel) %>%
     mutate(operatingunit = case_when(operatingunit == "Western Hemisphere Region" ~ "WHR",
                                      operatingunit == "Dominican Republic" ~ "DR",
                                      operatingunit == "Democratic Republic of the Congo" ~ "DRC",
@@ -71,14 +70,25 @@
     group_by(fiscal_year, operatingunit, funding_agency, prime_partner_name, mech_code, indicator) %>% 
     summarise(across(c(targets, starts_with("qtr")), sum, na.rm = TRUE),
               .groups = "drop") %>%
-    reshape_msd("quarters", qtrs_keep_cumulative = TRUE) %>% 
-    adorn_achievement() %>% 
+    reshape_msd("quarters", qtrs_keep_cumulative = TRUE) %>%
+    calc_achievement() %>%
     mutate(quarter = period %>% str_sub(-1) %>% as.integer, .after = fiscal_year,
-           across(c(results:achv_color), ~ ifelse(indicator == "OVC_SERV" & quarter %in% c(1,3), NA_real_, .))) 
+           across(c(results:achievement_qtrly), ~ ifelse(indicator == "OVC_SERV" & quarter %in% c(1,3), NA_real_, .))) 
 
+  df_cap_vlc <- df_cap %>%
+    select(-c(targets, results_cumulative, achievement_qtrly)) %>% 
+    filter(indicator %in% c("TX_CURR_Lag2", "TX_PVLS_D")) %>% 
+    pivot_wider(names_from = "indicator",
+                values_from = "results") %>%
+    mutate(indicator = "VL Coverage",
+           achievement_qtrly = TX_PVLS_D / TX_CURR_Lag2) %>% 
+    select(-starts_with("TX"))
   
   df_cap <- df_cap %>% 
+    filter(indicator %ni% c("TX_CURR_Lag2", "TX_PVLS_D")) %>% 
+    bind_rows(df_cap_vlc) %>% 
     mutate(flag = case_when(indicator == "OVC_SERV" & achievement_qtrly < .8 ~ TRUE,
+                            indicator == "VL Coverage" & achievement_qtrly < .85 ~ TRUE,
                             indicator %in% c("TX_CURR", "TX_PVLS_D") & quarter == 1 & achievement_qtrly < .80 ~ TRUE,
                             indicator %in% c("TX_CURR", "TX_PVLS_D") & quarter == 2 & achievement_qtrly < .85 ~ TRUE,
                             indicator %in% c("TX_CURR", "TX_PVLS_D") & quarter == 3 & achievement_qtrly < .90 ~ TRUE,
@@ -96,6 +106,8 @@
                               flag == TRUE ~ "Flag",
                               TRUE ~ "Clear"))
   
+  df_cap <- df_cap %>% 
+    filter(fiscal_year == curr_fy)
   
 
 # MUNGE OU LEVEL TOPS -----------------------------------------------------
@@ -186,7 +198,7 @@
     scale_x_continuous(expand = c(.005, .005), position = "top",
                        breaks = seq(5, max(df_cap_ind$mech_total), 5)) +
     labs(x = NULL, y = NULL,
-         title = glue("MOST OF USAID'S CAP ELIGIBLE MECHANISM ARISE FROM {cap_elig_ind$indicator} WITH {cap_elig_ind$cap_mech} ELIGIBLE"),
+         title = glue("MOST OF USAID'S CAP ELIGIBLE MECHANISM ARISE FROM {toupper(cap_elig_ind$indicator)} WITH {cap_elig_ind$cap_mech} ELIGIBLE"),
          caption = glue("Source: {msd_source}")) +
     si_style_nolines() +
     theme(strip.placement = "outside",
