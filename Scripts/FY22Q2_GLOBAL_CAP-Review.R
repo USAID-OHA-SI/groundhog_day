@@ -149,9 +149,11 @@
     si_style_nolines()
   
 
-  si_save(glue("../Downloads/{curr_pd}_USAID_CAP-elig.svg"),
+  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig.svg"),
           width = 5)
 
+  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig.png"),
+          width = 5)
 
 # MUNGE OU X INDICATOR LEVELS ---------------------------------------------
 
@@ -205,6 +207,8 @@
           axis.text.x = element_blank(),
           panel.spacing = unit(.5, "lines"))
     
+  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig_ind.svg"))
+  
 # CHECK -------------------------------------------------------------------
 
   df_cap %>% 
