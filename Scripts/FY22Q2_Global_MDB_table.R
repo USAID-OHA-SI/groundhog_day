@@ -45,7 +45,8 @@
   mdb_df   <- make_mdb_df(msd)
   mdb_tbl  <- reshape_mdb_df(mdb_df, curr_pd)  
    
-
+  mdb_df_tx    <- make_mdb_tx_df(msd)
+  mdb_tbl_tx   <- reshape_mdb_tx_df(mdb_df_tx, pd)  
   
 # VIZ ============================================================================
 
@@ -53,6 +54,12 @@
     create_mdb(ou = "Global", type = "main", curr_pd, msd_source) %>% 
     gtsave(path = "Images", filename = glue::glue("GLOBAL_{curr_pd}_mdb_main.png"),
            vwidth = 1366, vheight = 784, zoom = 2)
+  
+  create_mdb(mdb_tbl_tx, ou = "Global", type = "treatment", pd, msd_source) %>% 
+    bold_column(., Q1) %>% 
+    bold_rowgroup(.) %>% 
+    embiggen()
+  
 
 # SPINDOWN ============================================================================
 
