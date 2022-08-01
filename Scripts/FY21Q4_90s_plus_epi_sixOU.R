@@ -28,11 +28,21 @@ goal <- 90
 
 #non regional country list
 lts <- pepfar_country_list %>% 
-  filter(operatingunit == countryname) %>% 
-  pull(countryname)
+  filter(operatingunit == country) %>% 
+  pull(country)
 
 #rows of countries per column in viz
 row_max <- 17
+
+epi_ou <- c("Namibia", "Botswana", "Eswatini", "Lesotho", "Uganda", "Kenya")
+lac_ou <- c("Jamaica",
+            "Trinidad and Tobago",
+            "El Salvador","Guatemala",
+            "Honduras","Nicaragua","Panama","Brazil",
+            "Dominican Republic","Haiti")
+asia_ou <- c("Burma", "Cambodia", "Kazakhstan", "Tajikistan",
+             "Kyrgyzstan", "India", "Indonesia", "Laos", "Nepal",
+             "Papua New Guinea", "Philippines", "Thailand", "Vietnam")
 
 # IMPORT ------------------------------------------------------------------
 
@@ -44,7 +54,7 @@ df_tt <- pull_unaids("Test & Treat - Percent", TRUE)
 
 # MUNGE HIV ESTIMATES -----------------------------------------------------
 
-get_epi_control <- function(age_param, sex_param) {
+get_epi_control <- function(age_param, sex_param, ou_param) {
   #limit HIV estimates data
   df_est_lim <- df_est %>% 
     filter(indicator %in% c("PLHIV", "AIDS Related Deaths", "New HIV Infections"),
@@ -157,7 +167,7 @@ get_epi_control <- function(age_param, sex_param) {
                 mutate(column_order = ceiling(row_number()/row_max))) 
   
   df_viz %>%
-    filter(country %in% c("Namibia", "Botswana", "Eswatini", "Lesotho", "Uganda", "Kenya")) %>% 
+    filter(country %in% ou_param) %>% 
     ggplot(aes(indicator, country_grp,
                fill = fill_color, color = border_color, shape = shp)) +
     geom_point(size = 6.5) +
@@ -184,7 +194,8 @@ get_epi_control <- function(age_param, sex_param) {
     scale_x_discrete(position = "top", expand = c(.05, .05)) +
     scale_y_reordered() +
     coord_cartesian(clip = "off") +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL,
+         title = glue::glue(sex_param, " ", age_param)) +
     si_style_nolines() +
     theme(axis.text.y = element_markdown(),
           strip.text.y = element_blank(),
@@ -195,23 +206,27 @@ get_epi_control <- function(age_param, sex_param) {
 
 # VIZ ---------------------------------------------------------------------
 
+#change params depending on what you need
+
 #all pop
-df_viz <- get_epi_control("all", "all")
+df_viz_all <- get_epi_control("all", "all", asia_ou)
 
 #young pop (0-14)
-df_viz <- get_epi_control("0-14", "all")
+df_viz_peds <- get_epi_control("0-14", "all", lac_ou)
 
 # adults
-df_viz <- get_epi_control("15+", "all")
+df_viz_adult <- get_epi_control("15+", "all", lac_ou)
 
 #female adults
-df_viz <- get_epi_control("15+", "female")
+df_viz_female <- get_epi_control("15+", "female", lac_ou)
 
 #male adults
-df_viz <- get_epi_control("15+", "male")
+df_viz_male <- get_epi_control("15+", "male", lac_ou)
+
+full_viz <- df_viz_all + (df_viz_peds / df_viz_adult) + (df_viz_female / df_viz_male)
 
 df_viz %>%
-  filter(country %in% c("Namibia", "Botswana", "Eswatini", "Lesotho", "Uganda", "Kenya")) %>% 
+  filter(country %in% epi_ou) %>% 
   ggplot(aes(indicator, country_grp,
              fill = fill_color, color = border_color, shape = shp)) +
   geom_point(size = 6.5) +
