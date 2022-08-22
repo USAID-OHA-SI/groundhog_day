@@ -1,0 +1,43 @@
+---
+title: "Q3 review Visuals"
+author: "Nada Petrovic & Karishma Srikanth"
+date: "8/20/2022"
+output: html_document
+reference_doc: template.pptx
+fig_width: 10
+fig_height: 5.625
+dpi: 320
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(imager)
+library(glamr)
+library(gophr)
+library(grid) 
+library(glue)
+knitr::opts_chunk$set(echo = TRUE)
+curr_pd <- source_info(return = "period")
+pd_c_or_i <- source_info() %>% str_sub(1,7)
+init_or_clean <- ifelse(str_detect(pd_c_or_i,"c"),"clean","initial")
+```
+
+## Period `r curr_pd` `r init_or_clean`
+
+### HTS TST
+```{r HTS_POS, echo = FALSE, warning=FALSE, message=FALSE}
+ script_name<-"FY22Q3_HTS_TST_POS_USAID_Contribution_Trends.R"
+ rs<-strsplit(script_name, split=".", fixed =TRUE)
+ fig_name<-glue("{rs[[1]][1]}.png")
+ source(glue("Scripts/{script_name}"))
+ #img <-load.image(glue("Images/{fig_name}")) 
+ #Will switch this once we have data
+ img<-load.image("FY22Q2_HTS_TST_POS_USAID_Contribution_Trends.png")
+```
+
+Figure name (in Images folder): `r fig_name`
+
+```{r PLOT, echo = FALSE, warning=TRUE, message=TRUE, fig.asp=0.62}
+img %>% grid.raster()
+ # plot(img, axes=FALSE)
+```

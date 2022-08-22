@@ -35,7 +35,7 @@
 
   #Current MSD
   df <- si_path() %>% 
-    return_latest("OU_IM_FY20-22") %>% 
+    return_latest("OU_IM_FY20-23") %>% 
     read_msd() %>% 
     resolve_knownissues()
   
@@ -84,7 +84,7 @@
            )
           ) %>% 
     group_by(operatingunit) %>% 
-    fill(rank_flag, .direction = "downup") %>% 
+    tidyr::fill(rank_flag, .direction = "downup") %>%
     ungroup()
   
 
@@ -111,9 +111,10 @@
              aes(y = value, group = funding_agency, fill = fill_colors)) +
     geom_text(data = . %>% filter(funding_agency == "USAID"), 
               aes(y = value, label = percent(share, 1)), 
-              size = 8/.pt, 
+              size = 7/.pt, 
               family = "Source Sans Pro", 
               vjust = -0.5) +
+    theme(axis.text.y=element_text(size=8))+
     facet_wrap(~facet_order, scales = "free_y", nrow = 2) +
     scale_fill_identity() +
     si_style_ygrid(facet_space = 0.5) +
@@ -123,6 +124,7 @@
                         SI analytics: {paste(authors, collapse = '/')}
                      US Agency for International Development"))
   
-  si_save(glue("Graphics/{curr_pd}_HTS_POS_trends_.svg"), height = 4, width = 10, scale = 1.3)  
+  #si_save(glue("Graphics/{curr_pd}_HTS_POS_trends_.svg"), height = 4, width = 10, scale = 1.3)  
+  si_save(glue("Images/{curr_pd}_HTS_TST_POS_USAID_Contribution_Trends.png"), height = 4, width = 10, scale = 1.3)
   
 
