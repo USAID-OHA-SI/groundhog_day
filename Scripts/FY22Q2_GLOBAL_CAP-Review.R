@@ -1,9 +1,10 @@
 # PROJECT:  groundhog_day 
 # AUTHOR:   A.Chafetz | USAID
 # PURPOSE:  Review CAP eligible mechanism
+# REF ID:   815b7e37 
 # LICENSE:  MIT
 # DATE:     2022-05-04
-# UPDATED:  2022-06-07
+# UPDATED:  2022-08-29
 
 # DATIM REPORT PARAMETERS -------------------------------------------------
 
@@ -34,6 +35,8 @@
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
+  ref_id <- "815b7e37"
+  
   load_secrets("datim")
   
   ind_sel <- c("PrEP_NEW", "VMMC_CIRC", "OVC_SERV",  "HTS_TST_POS", "TX_NEW", 
@@ -42,6 +45,7 @@
   file_path <-  si_path() %>% return_latest("OU_IM")
   # file_path <- file.path(si_path("path_downloads"), 
   #                        "Genie-OUByIMs-Global-Daily-2022-05-16.zip")
+  file_path_fsd <-  si_path() %>% return_latest("Financial")
   
   msd_source <- source_info(file_path)
   
@@ -53,10 +57,7 @@
   
   df <- read_msd(file_path) 
 
-  
-  df_fsd <- file.path(si_path(),
-                      "Financial_Structured_Datasets_COP17-21_20220513.zip") %>% 
-    read_msd() 
+  df_fsd <- read_msd(file_path_fsd) 
   
 # MUNGE -------------------------------------------------------------------
 
@@ -66,6 +67,7 @@
     filter(indicator %in% ind_sel,
            funding_agency != "Dedup",
            # funding_agency == "USAID",
+           operatingunit != "Ukraine"
            ) %>%
     clean_agency() %>% 
     mutate(operatingunit = case_when(operatingunit == "Western Hemisphere Region" ~ "WHR",
@@ -172,10 +174,10 @@
     si_style_nolines()
   
 
-  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig.svg"),
+  si_save(glue("Graphics/{curr_pd}_USAID_CAP-elig.svg"),
           width = 5)
 
-  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig.png"),
+  si_save(glue("Images/Downloads/{curr_pd}_USAID_CAP-elig.png"),
           width = 5)
 
   #USAID & CDC
@@ -197,7 +199,7 @@
     si_style_nolines() +
     theme(strip.text = element_blank())
   
-  si_save(glue("../../../Downloads/{curr_pd}_USAID_CDC_CAP-elig.svg"))
+  si_save(glue("Graphics/{curr_pd}_USAID_CDC_CAP-elig.svg"))
   
   
   
@@ -258,7 +260,7 @@
           axis.text.x = element_blank(),
           panel.spacing = unit(0, "lines"))
     
-  si_save(glue("../../../Downloads/{curr_pd}_USAID_CAP-elig_ind.png"))
+  si_save(glue("Images/{curr_pd}_USAID_CAP-elig_ind.png"))
   
 # CHECK -------------------------------------------------------------------
 
@@ -383,6 +385,6 @@
     si_style_nolines()
   
   
-  si_save(glue("../../../Downloads/{curr_pd}_USAID_Large-Parner_CAP-elig.svg"),
+  si_save(glue("Graphics/{curr_pd}_USAID_Large-Parner_CAP-elig.svg"),
           width = 7)
   
