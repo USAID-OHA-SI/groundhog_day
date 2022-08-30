@@ -24,7 +24,7 @@ library(mindthegap)
 authors <- c("Aaron Chafetz", "Tim Essam", "Karishma Srikanth")
 
 #UNAID GOAL - 90 or 95
-goal <- 90
+goal <- 95
 
 #non regional country list
 lts <- pepfar_country_list %>% 
@@ -35,37 +35,41 @@ lts <- pepfar_country_list %>%
 row_max <- 17
 
 epi_ou <- c("Namibia", "Botswana", "Eswatini", "Lesotho", "Uganda", "Kenya")
+
 lac_ou <- c("Jamaica",
             "Trinidad and Tobago",
             "El Salvador","Guatemala",
             "Honduras","Nicaragua","Panama","Brazil",
             "Dominican Republic","Haiti")
+
 asia_ou <- c("Burma", "Cambodia", "Kazakhstan", "Tajikistan",
              "Kyrgyzstan", "India", "Indonesia", "Laos", "Nepal",
              "Papua New Guinea", "Philippines", "Thailand", "Vietnam")
 
+near_95 <- c("Zimbabwe", "Botswana", "Rwanda", "Eswatini", "Malawi")
+
 # IMPORT ------------------------------------------------------------------
 
 #HIV estimates
-df_est <- pull_unaids("HIV Estimates - Integer", TRUE)
+df_est <- pull_unaids("HIV Estimates", TRUE)
 
 #Test and Treat percent estimates
-df_tt <- pull_unaids("Test & Treat - Percent", TRUE)
+df_tt <- pull_unaids("HIV Test & Treat", TRUE)
 
 # MUNGE HIV ESTIMATES -----------------------------------------------------
 
 get_epi_control <- function(age_param, sex_param, ou_param) {
   #limit HIV estimates data
   df_est_lim <- df_est %>% 
-    filter(indicator %in% c("PLHIV", "AIDS Related Deaths", "New HIV Infections"),
+    filter(indicator %in% c("Number PLHIV", "Number AIDS Related Deaths", "Number New HIV Infections"),
            age == age_param,
-           sex == "all", 
-           stat == "est") %>% 
-    select(year, country, indicator, value)
+           sex == sex_param) %>% 
+    select(year, country, indicator, estimate)
   
   #reshape wide to align with T&T
   df_est_lim <- df_est_lim %>% 
     pivot_wider(names_from = indicator,
+                values_from = estimate,
                 names_glue = "{indicator %>% str_extract_all('Deaths|Infections|PLHIV') %>% tolower}")
   
   #plhiv for plot
@@ -101,16 +105,17 @@ get_epi_control <- function(age_param, sex_param, ou_param) {
   #limit Test and Treat data
   df_tt_lim <- df_tt %>% 
     filter(year == max(year),
-           indicator %in% c("KNOWN_STATUS", "PLHIV_ON_ART", "VLS"),
+           indicator %in% c("Percent Known Status of PLHIV", "Percent on ART of PLHIV", "Percent VLS of PLHIV"),
            age == age_param,
-           sex == sex_param,
-           stat == "est") %>% 
-    select(year, country, indicator, value)
+           sex == sex_param) %>% 
+    select(year, country, indicator, estimate) %>% 
+    rename(value = estimate)
   
   df_tt_lim <- df_tt_lim %>% 
     filter(!is.na(value)) %>% 
-    mutate(indicator = recode(indicator, "KNOWN_STATUS" = "Known\nStatus",
-                              "PLHIV_ON_ART" = "On\nART"),
+    mutate(indicator = recode(indicator, "Percent Known Status of PLHIV" = "Known\nStatus",
+                              "Percent on ART of PLHIV" = "On\nART",
+                              "Percent VLS of PLHIV" = "VLS"),
            set = recode(indicator, "Known\nStatus" = 1,
                         "On\nART" = 2,
                         "VLS" = 3),
@@ -209,19 +214,19 @@ get_epi_control <- function(age_param, sex_param, ou_param) {
 #change params depending on what you need
 
 #all pop
-df_viz_all <- get_epi_control("all", "all", asia_ou)
+df_viz_all <- get_epi_control("All", "All", near_95)
 
 #young pop (0-14)
-df_viz_peds <- get_epi_control("0-14", "all", lac_ou)
+df_viz_peds <- get_epi_control("0-14", "All", lac_ou)
 
 # adults
-df_viz_adult <- get_epi_control("15+", "all", lac_ou)
+df_viz_adult <- get_epi_control("15+", "All", lac_ou)
 
 #female adults
-df_viz_female <- get_epi_control("15+", "female", lac_ou)
+df_viz_female <- get_epi_control("15+", "Female", lac_ou)
 
 #male adults
-df_viz_male <- get_epi_control("15+", "male", lac_ou)
+df_viz_male <- get_epi_control("15+", "Fale", lac_ou)
 
 full_viz <- df_viz_all + (df_viz_peds / df_viz_adult) + (df_viz_female / df_viz_male)
 
