@@ -1,10 +1,5 @@
-###NEXT STEPS
-## -- finish programming achievement for Q4
-## -- add exception for Q2
-## -- fix up table
-
-# PROJECT:  FY21Q3 Review
-# AUTHOR:   A.Chafetz | T. Essam USAID
+# PROJECT:  FY22Q3 Review
+# AUTHOR:   N.Petrovic USAID
 # PURPOSE:  treatment scale up since PEPFAR start
 # LICENSE:  MIT
 # DATE:     2021-05-14
@@ -31,7 +26,6 @@
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
-  authors <- c("Aaron Chafetz", "Tim Essam", "Karishma Srikanth")
   merdata <- si_path("path_msd")
   load_secrets()
 
