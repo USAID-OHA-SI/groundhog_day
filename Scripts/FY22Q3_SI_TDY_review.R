@@ -29,7 +29,8 @@
 
 # LOAD DATA ============================================================================  
 
-  df_tdy <- read_sheet(ss = drive_id)
+  df_tdy <- read_sheet(ss = drive_id) %>% 
+      mutate(tdy_id = row_number())
 
 # MUNGE ============================================================================
   
@@ -43,6 +44,7 @@
              share = total / type_total) %>% 
       ungroup()
     
+  # Grab numbers for plot headers  
    tot_hours <-  df_tdy_ou %>% 
     summarise(total = sum(total)) %>% 
      pull()
@@ -52,6 +54,7 @@
      summarise(total = sum(total)) %>% 
      pull()
     
+  # bar graph summarizing TDY support across types of support -- show where our efforts are spent 
   df_tdy_ou %>% 
     mutate(ou_order = tidytext::reorder_within(ou, share, type),
            ou_color = ifelse(ou == "South Africa", scooter_med, trolley_grey)) %>% 
@@ -61,7 +64,7 @@
               family = "Source Sans Pro", 
               color = "white") +
     scale_y_reordered() +
-    facet_wrap(~type, scales = "free") +
+    facet_grid(~type, scales = "free", space = "free") +
     scale_fill_identity() +
     si_style_xgrid(facet_space = 0.5) +
     labs(title = glue::glue("SI provided {tot_hours} days of TDY support since January 2022"), 
@@ -72,12 +75,16 @@
   
   si_save("Images/SI_retreat_TDY_support.png")
   
-  str(df_tdy)
-  
+
+# Create a line for start/end of TDY. What month had most travel?  
   df_tdy %>% 
     mutate(across(c(tdy_start, tdy_end), as.Date)) %>% 
     mutate(type_color = ifelse(type == "Virtual", golden_sand, denim)) %>% 
-    ggplot(aes(y = ou)) +
+    group_by(ou) %>% 
+    mutate(tot_time = sum(total_days)) %>% 
+    ungroup %>% 
+    mutate(ou_order = fct_reorder(ou, tot_time)) %>% 
+    ggplot(aes(y = ou_order)) +
     annotate(geom = "rect", 
              xmin = as.Date("2022-07-01"), 
              xmax = as.Date("2022-08-01"),
@@ -90,7 +97,7 @@
                  position = position_dodge(width  = 0.5)) +
     scale_color_identity() +
     scale_x_date(date_breaks = "1 month", date_labels = "%b %y") +
-    facet_wrap(~type)+
+    # facet_wrap(~type)+
     si_style() +
     scale_alpha_binned(range = c(0.2, 1)) +
     theme(legend.position = "none") +
@@ -100,28 +107,3 @@
          x = NULL, y = NULL)
     
   si_save("Images/SI_retreat_TDY_time.png", scale = 1.25)
-    
-
-      
-  group_by(OU, Type) %>% 
-      mutate(ou_total = sum(total_days, na.rm = T)) %>% 
-      ungroup() %>% 
-      mutate(ou_share = ou_total / grand_tally)
-    
-  # Collapse data down to OU level for high level summary
-    df_
-    
-    
-    
-  df_tdy %>% 
-    mutate(ou_order = fct_reorder(OU, total_days)) %>% 
-    ggplot(aes(x = total_days, y = ou_order)) +
-    geom_col() 
-  
-  
-# VIZ ============================================================================
-
-  #  
-
-# SPINDOWN ============================================================================
-
