@@ -32,22 +32,24 @@
   library(tidyverse)
   library(glitr) #remotes::install_github("USAID-OHA-SI/glitr", build_vignettes = TRUE)
   library(glamr) #remotes::install_github("USAID-OHA-SI/glamr", build_vignettes = TRUE)
+  library(grabr)
   library(janitor)
   library(glue)
   library(lubridate)
+  library(assertr)
+  library(plyr)
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
   #save DATIM credentials in OS password manager (one time)
-  # set_datim()
+  #set_datim()
 
   #store DATIM credentials in 
   load_secrets("datim")
 
-  
 # DATIM API FUNCTION ------------------------------------------------------
 
-  pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
+pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
                          username, password, 
                          baseurl = "https://final.datim.org/"){
     
@@ -117,11 +119,14 @@
 
   
 # IDENTIFY INPUTS FOR API -------------------------------------------------
+
+  nec_cols <- c("country", "country_uid", "community_lvl", "facility_lvl") 
   
   #country and level list
   ctry_list <- get_outable(datim_user(), datim_pwd()) %>% 
-    select(countryname, countryname_uid, 
-           community = community_lvl, facility = facility_lvl) %>% 
+    verify(nec_cols %in% names(.)) %>%
+    select(country, country_uid, 
+            community = community_lvl, facility = facility_lvl) %>% 
     pivot_longer(c(community, facility),
                  names_to = "type",
                  values_to = "level") 
@@ -131,7 +136,7 @@
     bind_rows(ctry_list %>%
                 filter(type == "community") %>% 
                 mutate(type = "agyw"))  %>% 
-    arrange(countryname, desc(type))
+    arrange(country, desc(type))
   
 
 # RUN API -----------------------------------------------------------------
