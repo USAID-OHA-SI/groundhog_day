@@ -93,7 +93,7 @@
                "displayProperty=SHORTNAME&skipMeta=false&hierarchyMeta=true")
     }
     
-    df <- glamr::datim_process_query(core_url, username, password)
+    df <- grabr::datim_process_query(core_url, username, password)
 
     if(!is.null(df)){
       df <- df %>%
