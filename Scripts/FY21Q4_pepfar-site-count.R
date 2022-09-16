@@ -3,7 +3,7 @@
 # PURPOSE:  identify number of PEPFAR sites reporting
 # LICENSE:  MIT
 # DATE:     2021-12-10
-# UPDATED:  2022-01-25
+# UPDATED:  2022-09-16
 
 
 # NOTES AND ASSUMPTIONS ---------------------------------------------------
@@ -29,15 +29,15 @@
 
 # DEPENDENCIES ------------------------------------------------------------
   
+  # library(plyr) needed for mapping, but should only be used explicitly so as not to conflict with dplyr
   library(tidyverse)
   library(glitr) #remotes::install_github("USAID-OHA-SI/glitr", build_vignettes = TRUE)
   library(glamr) #remotes::install_github("USAID-OHA-SI/glamr", build_vignettes = TRUE)
-  library(grabr)
+  library(grabr) #remotes::install_github("USAID-OHA-SI/grabr", build_vignettes = TRUE)
   library(janitor)
   library(glue)
   library(lubridate)
   library(assertr)
-  library(plyr)
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
