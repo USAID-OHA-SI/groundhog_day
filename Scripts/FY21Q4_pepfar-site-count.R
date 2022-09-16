@@ -31,7 +31,6 @@
   
   # library(plyr) needed for mapping, but should only be used explicitly so as not to conflict with dplyr
   library(tidyverse)
-  library(glitr) #remotes::install_github("USAID-OHA-SI/glitr", build_vignettes = TRUE)
   library(glamr) #remotes::install_github("USAID-OHA-SI/glamr", build_vignettes = TRUE)
   library(grabr) #remotes::install_github("USAID-OHA-SI/grabr", build_vignettes = TRUE)
   library(janitor)
