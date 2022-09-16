@@ -49,7 +49,7 @@
 
 # DATIM API FUNCTION ------------------------------------------------------
 
-pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
+  pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
                          username, password, 
                          baseurl = "https://final.datim.org/"){
     
@@ -73,7 +73,7 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
              "dimension=pe:", prior_4pds, "&", #period
              "dimension=ou:LEVEL-", org_lvl, ";", ou_uid, "&", #level and ou
              "dimension=SH885jaRe0o&", #Funding Mechanism
-             "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH&", #Technical Area
+             "dimension=LxhLO68FcXm:ELZsYsR89rn;CZplmfCbnv2;vw3VoiA4D0s;NYAJ6QkEKbC;Uo2vBxak9im;RxyNwEV3oQf;Fvs28dwjL6e;pkZRNlMgL89;fRWHMVd6Vq5;gma5vVZgK49;FfxbuFZVAM5;wdoUps1qb3V;qOgXk080fJH;CUblPgOMGaT;twyHxdQVjMC;hGUykTtC0Xm;f5IPTM7mieH;lYTgCwEjUX6;cwZbCmUvjp7;R59aGLjmKBO;ECGbKy8o3FC;BTIqHnjeG7l;rI3JlpiuwEK;bybAqM1Lnba;AaCcy7dVfWw;Z6TU9Os82Yw;MvszPTQrUhy;cSTYDtvP0Nt;udCop657yzi;o8GCardEcYz;tOiM2uxcnkj;bZOF8bon1dD;TYAjnC2isEk;jbyq87W19Qv;scxfIjoA6nt;oCwIxluUXok;lIUE50KyUIH&", #Technical Area
              "dimension=IeMmjHyBUpi:Jh0jDM5yQ2E&", #Targets / Results - results
              "dimension=HWPJnUTMjEq&", #Disaggregation Type
              "dimension=mINJi7rR1a6:", type_uid,"&", #Type of organisational unit
@@ -174,44 +174,47 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
 # EXPORT ------------------------------------------------------------------
 
   #indicators from MER 2.6
-  df_ind <- tribble(
-    ~category,      ~indicator,
-    "Prevention",     "AGYW_PREV",
-    "Prevention",    "FPINT_SITE",
-    "Prevention",      "GEND_GBV",
-    "Prevention",        "KP_MAT",
-    "Prevention",       "KP_PREV",
-    "Prevention",      "OVC_SERV",
-    "Prevention",       "PP_PREV",
-    "Prevention",     "PrEP_CT",
-    "Prevention",      "PrEP_NEW",
-    "Prevention",       "TB_PREV",
-    "Prevention",     "VMMC_CIRC",
-    "Testing",     "CXCA_SCRN",
-    "Testing",     "HTS_INDEX",
-    "Testing",    "HTS_RECENT",
-    "Testing",      "HTS_SELF",
-    "Testing",       "HTS_TST",
-    "Testing",   "OVC_HIVSTAT",
-    "Testing",     "PMTCT_EID",
-    "Testing",      "PMTCT_FO",
-    "Testing", "PMTCT_HEI_POS",
-    "Testing",    "PMTCT_STAT",
-    "Testing",       "TB_STAT",
-    "Treatment",       "CXCA_TX",
-    "Treatment",     "PMTCT_ART",
-    "Treatment",        "TB_ART",
-    "Treatment",       "TX_CURR",
-    "Treatment",         "TX_ML",
-    "Treatment",        "TX_NEW",
-    "Treatment",        "TX_RTT",
-    "Treatment",         "TX_TB",
-    "Viral Load Suppression",       "TX_PVLS",
-    "Health Systems",      "EMR_SITE",
-    "Health Systems",       "HRH_PRE",
-    "Health Systems",     "LAB_PTCQI",
-    "Health Systems",    "SC_ARVDISP",
-    "Health Systems",       "SC_CURR")
+  df_ind <- tibble::tribble(
+                    ~category,      ~indicator,
+                 "Prevention",     "AGYW_PREV",
+                 "Prevention",    "FPINT_SITE",
+                 "Prevention",      "GEND_GBV",
+                 "Prevention",        "KP_MAT",
+                 "Prevention",       "KP_PREV",
+                 "Prevention",      "OVC_SERV",
+                 "Prevention",       "PP_PREV",
+                 "Prevention",     "PrEP_CURR",
+                 "Prevention",       "PrEP_CT",
+                 "Prevention",      "PrEP_NEW",
+                 "Prevention",       "TB_PREV",
+                 "Prevention",     "VMMC_CIRC",
+                    "Testing",     "CXCA_SCRN",
+                    "Testing",     "HTS_INDEX",
+                    "Testing",    "HTS_RECENT",
+                    "Testing",      "HTS_SELF",
+                    "Testing",       "HTS_TST",
+                    "Testing",   "OVC_HIVSTAT",
+                    "Testing",     "PMTCT_EID",
+                    "Testing",      "PMTCT_FO",
+                    "Testing", "PMTCT_HEI_POS",
+                    "Testing",    "PMTCT_STAT",
+                    "Testing",       "TB_STAT",
+                  "Treatment",       "CXCA_TX",
+                  "Treatment",     "PMTCT_ART",
+                  "Treatment",        "TB_ART",
+                  "Treatment",       "TX_CURR",
+                  "Treatment",         "TX_ML",
+                  "Treatment",        "TX_NEW",
+                  "Treatment",        "TX_RTT",
+                  "Treatment",         "TX_TB",
+     "Viral Load Suppression",       "TX_PVLS",
+             "Health Systems",      "EMR_SITE",
+             "Health Systems",       "HRH_PRE",
+             "Health Systems",     "LAB_PTCQI",
+             "Health Systems",    "SC_ARVDISP",
+             "Health Systems",       "SC_CURR"
+     )
+
   
   #append prefix to indicator names for matching/ordering
   df_ind_adj <- df_ind %>% 
@@ -256,7 +259,7 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
 
   # #pull list of DATIM dimensions for API
   # datim_dimensions() %>%
-  #   arrange(dimension) %>% 
+  #   arrange(dimension) %>%
   #   prinf()
   # 
   # #pull items from dimensions to add to API
@@ -265,7 +268,7 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
   # #all indicator uids
   # df_ind_datim <- datim_dim_items("Technical Area")
   # 
-  # #indicators from MER 2.5
+  # #indicators from MER 2.6
   # df_ind <- tribble(
   #                  ~category,      ~indicator,
   #               "Prevention",     "AGYW_PREV",
@@ -275,7 +278,8 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
   #               "Prevention",       "KP_PREV",
   #               "Prevention",      "OVC_SERV",
   #               "Prevention",       "PP_PREV",
-  #               "Prevention",     "PrEP_CURR",
+  #               "Prevention",     "PrEP_CURR", #MER2.5, but needed historically
+  #               "Prevention",       "PrEP_CT",
   #               "Prevention",      "PrEP_NEW",
   #               "Prevention",       "TB_PREV",
   #               "Prevention",     "VMMC_CIRC",
@@ -305,9 +309,9 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
   #           "Health Systems",    "SC_ARVDISP",
   #           "Health Systems",       "SC_CURR")
   # 
-  # #join indicators with %>% 
-  # lst_ind_uid <- df_ind %>% 
-  #   left_join(df_ind_datim, by = c("indicator" = "item")) %>% 
-  #   pull() %>% 
+  # #join indicators with %>%
+  # lst_ind_uid <- df_ind %>%
+  #   left_join(df_ind_datim, by = c("indicator" = "item")) %>%
+  #   pull() %>%
   #   paste0(collapse = ";")
-  
+
