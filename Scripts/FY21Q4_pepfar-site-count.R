@@ -165,20 +165,15 @@ pull_sites <- function(ou_name, ou_uid, org_type, org_lvl,
  
   #site count table by site and indicator type
   df_sites %>% 
-    group_by(orgunituid) %>% 
-    mutate(indicatortype = ifelse(n() > 1, "multi", indicatortype)) %>% 
+    group_by(orgunituid) %>%
     ungroup() %>% 
-    distinct(orgunituid, indicatortype, sitetype) %>% 
-    count(sitetype, indicatortype) %>% 
-    pivot_wider(names_from = indicatortype, 
-                values_from = "n",
-                values_fill = 0) %>% 
+    distinct(orgunituid, indicatortype, sitetype) %>%
+    tabyl(sitetype, indicatortype) %>%
     adorn_totals(where = c("row", "col"))
     
-
 # EXPORT ------------------------------------------------------------------
 
-  #indicators from MER 2.5
+  #indicators from MER 2.6
   df_ind <- tribble(
     ~category,      ~indicator,
     "Prevention",     "AGYW_PREV",
