@@ -200,7 +200,8 @@
     facet_wrap(~fct_reorder2(country_lab, period, tx_curr, .desc = TRUE)) +
     scale_y_continuous(label = percent, 
                        breaks = seq(0, 1, .5)) +
-    scale_x_discrete(breaks = c("FY20Q1", "FY20Q3", "FY21Q1", "FY21Q3", "FY22Q1")) +
+    scale_x_discrete(breaks = c("FY20Q1", "FY21Q1", "FY22Q1", "FY22Q3"),
+                     labels = c("FY20Q1"="FY20", "FY21Q1"="FY21", "FY22Q1"="FY22", "FY22Q3"="Q3")) +
     scale_color_identity(aesthetics = c("color","fill")) +
     coord_cartesian(clip = "off") +
     labs(x = NULL, y = NULL,
@@ -217,7 +218,7 @@
           panel.grid.minor.y = element_line(color = "#E8E8E8"),
           strip.text = element_markdown())    
   
-  si_save(glue("Graphics/Treat_qtr_mmd-countries_{curr_pd}.svg"))
-  si_save(glue("Images/Treat_qtr_mmd-countries_{curr_pd}.png"))       
+  si_save(glue("Graphics/{curr_pd}_Treat_qtr_mmd-countries.svg"))
+  si_save(glue("Images/{curr_pd}_Treat_qtr_mmd-countries.png"))       
   
   

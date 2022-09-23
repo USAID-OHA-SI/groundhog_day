@@ -42,14 +42,14 @@
   #Current MSD
   df <- si_path() %>% 
     return_latest("OU_IM_FY20-23") %>% 
-    read_msd() %>% 
+    read_msd()  %>% 
     resolve_knownissues()
     
   
   #Archived MSD
   df_arch <- si_path() %>% 
     return_latest("OU_IM_FY15-19") %>% 
-    read_msd() %>% 
+    read_msd()   %>% 
     resolve_knownissues()
   
   curr_pd <- identifypd(df)
@@ -61,14 +61,18 @@
 
 # MUNGE -------------------------------------------------------------------
 
-  pop_sel<-"ALL"
-  std_dis<-"Total Numerator"
+  #pop_sel<-"ALL"
+  #std_dis<-"Total Numerator"
   #pop_sel<-"PEDS"
   #std_dis<-c("Age/Sex/HIVStatus", "Age/Sex/HIVStatus", "Modality/Age/Sex/Result")
   #pop_sel<-"AGYW"
   #std_dis<-c("Age/Sex/HIVStatus", "Age/Sex/HIVStatus", "Modality/Age/Sex/Result")
   #pop_sel<-"KP"
   #std_dis<-c("KeyPop/HIVStatus", "KeyPop/HIVStatus", "KeyPop/Result")
+  std_dis<-c("Age/Sex/HIVStatus", "Age/Sex/HIVStatus", "Modality/Age/Sex/Result")
+  pop_sel<-"ADULT_MEN"
+  
+  
   
   #source info
   source <- source_info()
@@ -111,7 +115,11 @@
     group_label<-"USAID, Females 15-24"
     } else if (pop_sel=="KP")  
     { df_tx<- df_tx_all %>% mutate(pop=TRUE)
-    group_label<-"USAID, Key Populations"
+     group_label<-"USAID, Key Populations"
+    } else if (pop_sel=="ADULT_MEN")  
+    { df_tx<- df_tx_all %>% 
+      mutate(pop=ifelse(trendscoarse=="15+" & sex=="Male", TRUE, FALSE))
+      group_label<-"USAID, Males 15+"
     } else {
     df_tx<- df_tx_all %>% mutate(pop=TRUE)
     group_label<-"USAID, all populations"
@@ -189,8 +197,8 @@ nudge_space <- 0.125
                                   Created by: USAID OHA SI Team | {ref_id}")))+
      theme(plot.caption = element_text(hjust=c(0, 1)))
   
-  si_save(glue("Graphics/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.svg"), height = 4, width = 10, scale = 1.3)
-  si_save(glue("Images/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.png"), height = 4, width = 10, scale = 1.3)  
+ # si_save(glue("Graphics/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.svg"), height = 4, width = 10, scale = 1.3)
+#  si_save(glue("Images/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.png"), height = 4, width = 10, scale = 1.3)  
   
   ## Calculate percent
   
@@ -225,15 +233,33 @@ nudge_space <- 0.125
   
   ## NOTES
   
+  ## Overall -- w/ resolve_known_issues numbers match targets/values in MD table for FY22
+  ## without resolve_known_issues -  match Panorama
+
+  
+  
+  ## Peds -- check w/ Panorama
+  ## Results over time -- matches when resolve_known_issues is removed
+  ## with resolve_issues -- close but 2020 & 21 targets don't match
+  ## % results & targets matches w/o resolve_known_issues
+  
   ## AGYW -- check w/ Panorama
+  ## % total matches w/ and w/o known issues
   ## 2019 results match, targets in Pano are not split by age group so cannot compare
   ## 2020 results match, targets slightly off
   ##      everything matches when resolve_known_issues is removed
   ## 2021 results are all close but slightly off, 
   ##      some of the targets match some are slightly off
   ##      everything matches when resolve_known_issues is removed
-  ## 2022 results & targets match perfectly
+  ## 2022 results & targets match 
   
+  ## MEN +15 matches Pano w/o exclude known issues
+  ## Some discrepancies w/ exclude -- biggest for FY21 TX_CURR
+  
+  ## KP -- over time -- matches w/ Pano without resolve_known_issues
+                       # w/ resolve some variation in 2020 targets & 2021 results +targets
+                       # but close
+  ## KP -- % of total -- matches w/ Pano w and w/o resolve_known_issues
   
  
 
