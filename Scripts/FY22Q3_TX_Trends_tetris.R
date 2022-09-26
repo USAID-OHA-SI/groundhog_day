@@ -1,6 +1,6 @@
 # PROJECT:  FY22Q3 Review
 # AUTHOR:   N.Petrovic USAID
-# PURPOSE:  treatment scale up since PEPFAR start
+# PURPOSE:  HTS_TST_POS, TX_NEW, TX_CURR
 # LICENSE:  MIT
 # DATE:     2022-09-05
 # UPDATED:  
@@ -197,8 +197,8 @@ nudge_space <- 0.125
                                   Created by: USAID OHA SI Team | {ref_id}")))+
      theme(plot.caption = element_text(hjust=c(0, 1)))
   
- # si_save(glue("Graphics/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.svg"), height = 4, width = 10, scale = 1.3)
-#  si_save(glue("Images/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.png"), height = 4, width = 10, scale = 1.3)  
+  si_save(glue("Graphics/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.svg"), height = 4, width = 10, scale = 1.3)
+  si_save(glue("Images/{curr_pd}_TX_trends_ou_gaps_{pop_sel}.png"), height = 4, width = 10, scale = 1.3)  
   
   ## Calculate percent
   
