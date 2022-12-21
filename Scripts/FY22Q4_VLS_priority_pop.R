@@ -1,0 +1,199 @@
+# AUTHOR:   K. Srikanth | USAID
+# PURPOSE:  VLS by priority population
+# REF ID:   0df6589b 
+# LICENSE:  MIT
+# DATE:     2022-12-21
+# UPDATED: 
+
+# DEPENDENCIES ------------------------------------------------------------
+  
+  library(glamr)
+  library(tidyverse)
+  library(glitr)
+  library(gophr)
+  library(extrafont)
+  library(scales)
+  library(tidytext)
+  library(patchwork)
+  library(ggtext)
+  library(glue)
+  library(readxl)
+  library(googlesheets4)
+library(cascade)
+  
+
+# GLOBAL VARIABLES --------------------------------------------------------
+  
+  # SI specific paths/functions  
+    load_secrets()
+    merdata <- file.path(glamr::si_path("path_msd"))
+    file_path <- return_latest(folderpath = merdata,
+      pattern = "OU_IM_FY20-23_20221114")
+      
+  # Grab metadata
+   get_metadata(file_path)
+  
+  ref_id <- "0df6589b"
+
+# IMPORT ------------------------------------------------------------------
+  
+  df <- read_msd(file_path)
+
+# GLOBAL FUNCTIONS ---------------------------------------------------------
+  
+  #group and sum function
+  sum_reshape <- function(.data, ...) {
+    .data %>%
+      gophr::clean_indicator() %>%
+      dplyr::group_by(indicator, fiscal_year, ...) %>%
+      dplyr::summarise(dplyr::across(tidyselect::matches("qtr"), sum, na.rm = T)) %>%
+      gophr::reshape_msd() %>%
+      dplyr::ungroup() %>% 
+      dplyr::select(-period_type)
+  }
+  
+  #mutate AYP groups to trendscoarse
+  fltr_ayp <- function(.data) {
+    .data %>%
+      dplyr::mutate(trendscoarse = ifelse(ageasentered %in% c("15-19", "20-24"), "AYP", "Non AYP"))
+  }
+  
+  #pivot and mutate VLS calcs
+  get_vls <- function(.data, cat) {
+  
+    df <- .data %>% 
+      tidyr::pivot_wider(names_from = indicator, values_from = value) %>% 
+      dplyr::group_by(funding_agency, trendscoarse) %>% 
+      dplyr::mutate(TX_CURR_LAG2 = lag(TX_CURR, 2, order_by = period),
+                    VLC = TX_PVLS_D / TX_CURR_LAG2,
+                    VLS = TX_PVLS/TX_PVLS_D) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::relocate(TX_CURR_LAG2, .before = TX_CURR) %>% 
+      dplyr::filter(!is.na(TX_PVLS_D), TX_PVLS_D > 0) 
+    
+   if (cat == "sex") {
+    df_fin <- df %>% 
+       mutate(group = sex) %>% 
+       select(-c(trendscoarse, sex))
+     
+   } else {
+     
+    df_fin <- df %>% 
+       mutate(group = trendscoarse) %>% 
+       select(-c(trendscoarse))
+   }
+    
+    return(df_fin)
+
+  }
+
+  # MUNGE -------------------------------------------------------------------
+  
+  
+  # filter out UKR
+  # Peds, AYP, Adult F, Adult M, PBFW
+  
+  df_peds <- df %>% 
+   # clean_indicator() %>% 
+    filter(fiscal_year %in% c(2021, 2022),
+           funding_agency == "USAID",
+           indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+           operatingunit != "Ukraine",
+           standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
+                                           "Age/Sex/Indication/HIVStatus")) %>% 
+    sum_reshape(funding_agency, trendscoarse) %>% 
+    filter(trendscoarse == "<15") %>% 
+    get_vls(cat = "peds")
+    
+  df_sex <- df %>% 
+    # clean_indicator() %>% 
+    filter(fiscal_year %in% c(2021, 2022),
+           funding_agency == "USAID",
+           indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+           operatingunit != "Ukraine",
+           standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
+                                           "Age/Sex/Indication/HIVStatus")) %>% 
+    sum_reshape(funding_agency, sex, trendscoarse) %>% 
+    filter(trendscoarse == "15+") %>% 
+    get_vls(cat = "sex") %>% 
+    mutate(group = recode(group,
+                          "Female" = "Adult Female",
+                          "Male" = "Adult Male"))
+  
+df_ayp <- df %>% 
+    # clean_indicator() %>% 
+    filter(fiscal_year %in% c(2021, 2022),
+           funding_agency == "USAID",
+           indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+           operatingunit != "Ukraine",
+           standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
+                                           "Age/Sex/Indication/HIVStatus")) %>%
+  fltr_ayp() %>%
+    sum_reshape(funding_agency, trendscoarse) %>% 
+  filter(trendscoarse == "AYP") %>% 
+  get_vls(cat = "ayp")
+
+
+df_viz <- bind_rows(df_peds, df_sex, df_ayp)
+
+#PBFW - seems like we need PMTCT_ART as our proxy instead of TX_CURR?
+
+df %>% 
+  # clean_indicator() %>% 
+  filter(fiscal_year %in% c(2021, 2022),
+         funding_agency == "USAID",
+         #indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+         operatingunit != "Ukraine",
+         indicator == "TX_PVLS" & numeratordenom == "D"
+         & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus"
+         & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) 
+
+
+# code from rebooTZ/R/FY22Q3_TZA_VL_PregnantWomen.R
+
+
+# df_vl_pmtct <- df %>% 
+#   filter((indicator == "PMTCT_ART" & numeratordenom == "N" & otherdisaggregate == "Life-long ART, Already") | 
+#            (indicator == "TX_PVLS" & numeratordenom == "D" & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) ) %>% 
+#   clean_indicator() %>% 
+#   clean_agency()
+# 
+# df_vl_pmtct <- df_vl_pmtct %>% 
+#   bind_rows(df_vl_pmtct %>% 
+#               mutate(funding_agency = "PEPFAR")) %>% 
+#   group_by(fiscal_year, operatingunit, funding_agency, indicator) %>% 
+#   summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
+#   reshape_msd(include_type = FALSE) %>% 
+#   pivot_wider(names_from = indicator,
+#               names_glue = "{tolower(indicator)}") %>%
+#   arrange(operatingunit, funding_agency, period) %>% 
+#   group_by(operatingunit, funding_agency) %>% 
+#   mutate(pmtct_art_lag4 = rollsum(pmtct_art, 4, fill = NA, align = c("right"))) %>% 
+#   ungroup() %>% 
+#   mutate(vlc = tx_pvls_d/pmtct_art_lag4) %>% 
+#   filter(str_detect(period, "FY20", negate = TRUE)) 
+
+# VIZ -----------------------------------------------------------------------
+
+df_viz %>% 
+  mutate(endpoints = case_when(period %in% c(max(period), min(period))~VLS)) %>% 
+  ggplot(aes(period, VLS, group = group, color = scooter_med, fill = scooter_med))+
+  geom_area(alpha = .4, size = .9, position = "identity") +
+  geom_hline(yintercept = .9, color = usaid_red, linetype = "dashed") +
+  geom_area(aes(y = VLS), fill = scooter_med, color = scooter_med, alpha = .4) +
+  facet_wrap(~fct_reorder2(group, period, VLS, .desc = TRUE)) +
+  geom_text(aes(label = percent(VLS, 1)), na.rm = TRUE,
+            hjust = -.2, vjust = -0.7,family = "Source Sans Pro") +
+  geom_point(aes(y = endpoints), na.rm = TRUE) +
+  scale_fill_identity() +
+  scale_y_continuous(label = percent, 
+                     breaks = seq(0, 1, .25)) +
+  scale_color_identity() +
+  si_style_ygrid() +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL,
+       title = glue("VLS remains strong, but children and AYP lag behind adults for VLS" %>% toupper()),
+       #subtitle = "CHLIV from <1 to 19 years of age",
+       caption = glue("{metadata$caption}"))
+
+    
