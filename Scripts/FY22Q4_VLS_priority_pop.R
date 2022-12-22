@@ -201,3 +201,30 @@ df_viz %>%
 si_save(paste0(metadata$curr_pd, "_Q4Review_VLS_Age_Sex.png"),
         path = "Images")
 
+# VLC
+
+df_viz %>% 
+  filter(period %in% c("FY21Q4", "FY22Q1", "FY22Q2", "FY22Q3", "FY22Q4")) %>%
+  mutate(endpoints = case_when(period %in% c(max(period), min(period))~VLC)) %>% 
+  ggplot(aes(period, VLC, group = group, color = burnt_sienna_light, fill = burnt_sienna_light))+
+  geom_area(alpha = .4, linewidth = .9, position = "identity") +
+  geom_hline(yintercept = .9, color = burnt_sienna, linetype = "dashed") +
+  geom_area(aes(y = VLC), fill = burnt_sienna_light, color = burnt_sienna_light, alpha = .4) +
+  facet_wrap(~factor(group, levels = c("Adult Female", "Adult Male", "AYP", "<15"))) +
+  geom_point(aes(y = endpoints), na.rm = TRUE) +
+  scale_fill_identity() +
+  scale_y_continuous(label = percent, 
+                     breaks = seq(0, 1, .3)) +
+  scale_x_discrete(breaks = unique(df_viz$period)[grep("FY2(1|2)Q(2|4)", unique(df_viz$period))]) +
+  scale_color_identity() +
+  si_style_ygrid() +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL,
+       title = glue("While all groups saw dips in Q2 VLC, they ended trending upwards" %>% toupper()),
+       #subtitle = "CHLIV from <1 to 19 years of age",
+       caption = glue("VLC = TX_PVLC_D / TX_CURR_LAG2
+                       Adult = ages 15+, AYP = Adolescent and Young People ages 15-24
+                       {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner "))
+
+si_save(paste0(metadata$curr_pd, "_Q4Review_VLC_Age_Sex.png"),
+        path = "Images")
