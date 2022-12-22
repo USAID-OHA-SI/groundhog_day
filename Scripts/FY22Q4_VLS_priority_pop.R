@@ -7,10 +7,8 @@
 
 # DEPENDENCIES ------------------------------------------------------------
   
-  library(glamr)
+  library(gagglr)
   library(tidyverse)
-  library(glitr)
-  library(gophr)
   library(extrafont)
   library(scales)
   library(tidytext)
@@ -19,21 +17,21 @@
   library(glue)
   library(readxl)
   library(googlesheets4)
-library(cascade)
+  library(cascade)
   
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
   # SI specific paths/functions  
     load_secrets()
-    merdata <- file.path(glamr::si_path("path_msd"))
+    merdata <- file.path(si_path("path_msd"))
     file_path <- return_latest(folderpath = merdata,
       pattern = "OU_IM_FY20-23_20221114")
       
   # Grab metadata
    get_metadata(file_path)
   
-  ref_id <- "0df6589b"
+    ref_id <- "0df6589b"
 
 # IMPORT ------------------------------------------------------------------
   
