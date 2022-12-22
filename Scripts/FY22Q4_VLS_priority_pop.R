@@ -173,25 +173,31 @@ df %>%
 
 # VIZ -----------------------------------------------------------------------
 
+# VLS
+
 df_viz %>% 
+  filter(period %in% c("FY21Q4", "FY22Q1", "FY22Q2", "FY22Q3", "FY22Q4")) %>%
   mutate(endpoints = case_when(period %in% c(max(period), min(period))~VLS)) %>% 
-  ggplot(aes(period, VLS, group = group, color = scooter_med, fill = scooter_med))+
-  geom_area(alpha = .4, size = .9, position = "identity") +
-  geom_hline(yintercept = .9, color = usaid_red, linetype = "dashed") +
-  geom_area(aes(y = VLS), fill = scooter_med, color = scooter_med, alpha = .4) +
+  ggplot(aes(period, VLS, group = group, color = scooter_med, fill = scooter_light))+
+  geom_area(alpha = .4, linewidth = .9, position = "identity") +
+  geom_hline(yintercept = .9, color = scooter, linetype = "dashed") +
+  geom_area(aes(y = VLS), fill = scooter_light, color = scooter_med, alpha = .4) +
   facet_wrap(~fct_reorder2(group, period, VLS, .desc = TRUE)) +
-  geom_text(aes(label = percent(VLS, 1)), na.rm = TRUE,
-            hjust = -.2, vjust = -0.7,family = "Source Sans Pro") +
   geom_point(aes(y = endpoints), na.rm = TRUE) +
   scale_fill_identity() +
   scale_y_continuous(label = percent, 
-                     breaks = seq(0, 1, .25)) +
+                     breaks = seq(0, 1, .3)) +
+  scale_x_discrete(breaks = unique(df_viz$period)[grep("FY2(1|2)Q(2|4)", unique(df_viz$period))]) +
   scale_color_identity() +
   si_style_ygrid() +
   coord_cartesian(clip = "off") +
   labs(x = NULL, y = NULL,
-       title = glue("VLS remains strong, but children and AYP lag behind adults for VLS" %>% toupper()),
+       title = glue("VLS remains strong, but AYP and children lag behind adults" %>% toupper()),
        #subtitle = "CHLIV from <1 to 19 years of age",
-       caption = glue("{metadata$caption}"))
+       caption = glue("VLS = TX_PVLS/TX_PVLS_D
+                       Adult = ages 15+, AYP = Adolescent and Young People ages 15-24
+                       {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner"))
 
-    
+si_save(paste0(metadata$curr_pd, "_Q4Review_VLS_Age_Sex.png"),
+        path = "Images")
+
