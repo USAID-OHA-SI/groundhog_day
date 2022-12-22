@@ -1,9 +1,8 @@
-# AUTHOR:   K. Srikanth | USAID
+# AUTHOR:   K. Srikanth, J.Hoehner | USAID
 # PURPOSE:  VLS by priority population
 # REF ID:   0df6589b 
 # LICENSE:  MIT
-# DATE:     2022-12-21
-# UPDATED: 
+# DATE:     2022-12-22
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -18,7 +17,6 @@
   library(readxl)
   library(googlesheets4)
   library(cascade)
-  
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
@@ -87,7 +85,6 @@
 
   # MUNGE -------------------------------------------------------------------
   
-  
   # filter out UKR
   # Peds, AYP, Adult F, Adult M, PBFW
   
@@ -134,42 +131,28 @@ df_ayp <- df %>%
 
 df_viz <- bind_rows(df_peds, df_sex, df_ayp)
 
-#PBFW - seems like we need PMTCT_ART as our proxy instead of TX_CURR?
-
-df %>% 
-  # clean_indicator() %>% 
-  filter(fiscal_year %in% c(2021, 2022),
-         funding_agency == "USAID",
-         #indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
-         operatingunit != "Ukraine",
-         indicator == "TX_PVLS" & numeratordenom == "D"
-         & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus"
-         & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) 
-
-
+# PBFW 
 # code from rebooTZ/R/FY22Q3_TZA_VL_PregnantWomen.R
+# need to check if this is correct
 
-
-# df_vl_pmtct <- df %>% 
-#   filter((indicator == "PMTCT_ART" & numeratordenom == "N" & otherdisaggregate == "Life-long ART, Already") | 
-#            (indicator == "TX_PVLS" & numeratordenom == "D" & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) ) %>% 
-#   clean_indicator() %>% 
-#   clean_agency()
-# 
-# df_vl_pmtct <- df_vl_pmtct %>% 
-#   bind_rows(df_vl_pmtct %>% 
-#               mutate(funding_agency = "PEPFAR")) %>% 
-#   group_by(fiscal_year, operatingunit, funding_agency, indicator) %>% 
-#   summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
-#   reshape_msd(include_type = FALSE) %>% 
-#   pivot_wider(names_from = indicator,
-#               names_glue = "{tolower(indicator)}") %>%
-#   arrange(operatingunit, funding_agency, period) %>% 
-#   group_by(operatingunit, funding_agency) %>% 
-#   mutate(pmtct_art_lag4 = rollsum(pmtct_art, 4, fill = NA, align = c("right"))) %>% 
-#   ungroup() %>% 
-#   mutate(vlc = tx_pvls_d/pmtct_art_lag4) %>% 
-#   filter(str_detect(period, "FY20", negate = TRUE)) 
+df_vl_pmtct_viz <- df %>% 
+  clean_indicator() %>% 
+  filter(
+    fiscal_year == 2022,
+    funding_agency == "USAID",
+    operatingunit != "Ukraine",
+    (indicator == "PMTCT_ART" & numeratordenom == "N" & 
+    otherdisaggregate == "Life-long ART, Already") | 
+    (indicator == "TX_PVLS" & numeratordenom == "D" & 
+    standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & 
+    otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted"))) %>% 
+  group_by(fiscal_year, indicator) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
+  reshape_msd(include_type = FALSE) %>% 
+  pivot_wider(names_from = indicator,
+              names_glue = "{tolower(indicator)}") %>%
+  mutate(pmtct_art_lag4 = lag(pmtct_art, 4, na.rm = TRUE), 
+         vlc = tx_pvls_d/pmtct_art_lag4)
 
 # VIZ -----------------------------------------------------------------------
 
@@ -199,7 +182,9 @@ df_viz %>%
                        {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner"))
 
 si_save(paste0(metadata$curr_pd, "_Q4Review_VLS_Age_Sex.png"),
-        path = "Images")
+        path = "Images", 
+        width = 9.32, 
+        height = 5)
 
 # VLC
 
@@ -227,4 +212,6 @@ df_viz %>%
                        {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner "))
 
 si_save(paste0(metadata$curr_pd, "_Q4Review_VLC_Age_Sex.png"),
-        path = "Images")
+        path = "Images",
+        width = 9.32, 
+        height = 5)
