@@ -132,31 +132,7 @@ df_ayp <- df %>%
   filter(trendscoarse == "AYP") %>% 
   get_vls(cat = "ayp")
 
-
 df_viz <- bind_rows(df_peds, df_sex, df_ayp)
-
-# PBFW 
-# code from rebooTZ/R/FY22Q3_TZA_VL_PregnantWomen.R
-# need to check if this is correct
-
-df_vl_pmtct_viz <- df %>% 
-  clean_indicator() %>% 
-  filter(
-    fiscal_year == 2022,
-    funding_agency == "USAID",
-    operatingunit != "Ukraine",
-    (indicator == "PMTCT_ART" & numeratordenom == "N" & 
-    otherdisaggregate == "Life-long ART, Already") | 
-    (indicator == "TX_PVLS" & numeratordenom == "D" & 
-    standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & 
-    otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted"))) %>% 
-  group_by(fiscal_year, indicator) %>% 
-  summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
-  reshape_msd(include_type = FALSE) %>% 
-  pivot_wider(names_from = indicator,
-              names_glue = "{tolower(indicator)}") %>%
-  mutate(pmtct_art_lag4 = lag(pmtct_art, 4, na.rm = TRUE), 
-         vlc = tx_pvls_d/pmtct_art_lag4)
 
 # VIZ -----------------------------------------------------------------------
 
