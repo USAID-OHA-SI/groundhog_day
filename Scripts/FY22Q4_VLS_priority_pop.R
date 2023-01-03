@@ -1,16 +1,13 @@
-# AUTHOR:   K. Srikanth | USAID
+# AUTHOR:   K. Srikanth, J.Hoehner | USAID
 # PURPOSE:  VLS by priority population
 # REF ID:   0df6589b 
 # LICENSE:  MIT
-# DATE:     2022-12-21
-# UPDATED: 
+# DATE:     2022-12-22
 
 # DEPENDENCIES ------------------------------------------------------------
   
-  library(glamr)
+  library(gagglr)
   library(tidyverse)
-  library(glitr)
-  library(gophr)
   library(extrafont)
   library(scales)
   library(tidytext)
@@ -19,21 +16,20 @@
   library(glue)
   library(readxl)
   library(googlesheets4)
-library(cascade)
-  
+  library(cascade)
 
 # GLOBAL VARIABLES --------------------------------------------------------
   
   # SI specific paths/functions  
     load_secrets()
-    merdata <- file.path(glamr::si_path("path_msd"))
+    merdata <- file.path(si_path("path_msd"))
     file_path <- return_latest(folderpath = merdata,
       pattern = "OU_IM_FY20-23_20221114")
       
   # Grab metadata
    get_metadata(file_path)
   
-  ref_id <- "0df6589b"
+    ref_id <- "0df6589b"
 
 # IMPORT ------------------------------------------------------------------
   
@@ -89,7 +85,6 @@ library(cascade)
 
   # MUNGE -------------------------------------------------------------------
   
-  
   # filter out UKR
   # Peds, AYP, Adult F, Adult M, PBFW
   
@@ -136,64 +131,87 @@ df_ayp <- df %>%
 
 df_viz <- bind_rows(df_peds, df_sex, df_ayp)
 
-#PBFW - seems like we need PMTCT_ART as our proxy instead of TX_CURR?
-
-df %>% 
-  # clean_indicator() %>% 
-  filter(fiscal_year %in% c(2021, 2022),
-         funding_agency == "USAID",
-         #indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
-         operatingunit != "Ukraine",
-         indicator == "TX_PVLS" & numeratordenom == "D"
-         & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus"
-         & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) 
-
-
+# PBFW 
 # code from rebooTZ/R/FY22Q3_TZA_VL_PregnantWomen.R
+# need to check if this is correct
 
-
-# df_vl_pmtct <- df %>% 
-#   filter((indicator == "PMTCT_ART" & numeratordenom == "N" & otherdisaggregate == "Life-long ART, Already") | 
-#            (indicator == "TX_PVLS" & numeratordenom == "D" & standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted")) ) %>% 
-#   clean_indicator() %>% 
-#   clean_agency()
-# 
-# df_vl_pmtct <- df_vl_pmtct %>% 
-#   bind_rows(df_vl_pmtct %>% 
-#               mutate(funding_agency = "PEPFAR")) %>% 
-#   group_by(fiscal_year, operatingunit, funding_agency, indicator) %>% 
-#   summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
-#   reshape_msd(include_type = FALSE) %>% 
-#   pivot_wider(names_from = indicator,
-#               names_glue = "{tolower(indicator)}") %>%
-#   arrange(operatingunit, funding_agency, period) %>% 
-#   group_by(operatingunit, funding_agency) %>% 
-#   mutate(pmtct_art_lag4 = rollsum(pmtct_art, 4, fill = NA, align = c("right"))) %>% 
-#   ungroup() %>% 
-#   mutate(vlc = tx_pvls_d/pmtct_art_lag4) %>% 
-#   filter(str_detect(period, "FY20", negate = TRUE)) 
+df_vl_pmtct_viz <- df %>% 
+  clean_indicator() %>% 
+  filter(
+    fiscal_year == 2022,
+    funding_agency == "USAID",
+    operatingunit != "Ukraine",
+    (indicator == "PMTCT_ART" & numeratordenom == "N" & 
+    otherdisaggregate == "Life-long ART, Already") | 
+    (indicator == "TX_PVLS" & numeratordenom == "D" & 
+    standardizeddisaggregate == "PregnantOrBreastfeeding/Indication/HIVStatus" & 
+    otherdisaggregate %in% c("Pregnant, Routine", "Pregnant, Targeted"))) %>% 
+  group_by(fiscal_year, indicator) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
+  reshape_msd(include_type = FALSE) %>% 
+  pivot_wider(names_from = indicator,
+              names_glue = "{tolower(indicator)}") %>%
+  mutate(pmtct_art_lag4 = lag(pmtct_art, 4, na.rm = TRUE), 
+         vlc = tx_pvls_d/pmtct_art_lag4)
 
 # VIZ -----------------------------------------------------------------------
 
+# VLS
+
 df_viz %>% 
+  filter(period %in% c("FY21Q4", "FY22Q1", "FY22Q2", "FY22Q3", "FY22Q4")) %>%
   mutate(endpoints = case_when(period %in% c(max(period), min(period))~VLS)) %>% 
-  ggplot(aes(period, VLS, group = group, color = scooter_med, fill = scooter_med))+
-  geom_area(alpha = .4, size = .9, position = "identity") +
-  geom_hline(yintercept = .9, color = usaid_red, linetype = "dashed") +
-  geom_area(aes(y = VLS), fill = scooter_med, color = scooter_med, alpha = .4) +
+  ggplot(aes(period, VLS, group = group, color = scooter_med, fill = scooter_light))+
+  geom_area(alpha = .4, linewidth = .9, position = "identity") +
+  geom_hline(yintercept = .9, color = scooter, linetype = "dashed") +
+  geom_area(aes(y = VLS), fill = scooter_light, color = scooter_med, alpha = .4) +
   facet_wrap(~fct_reorder2(group, period, VLS, .desc = TRUE)) +
-  geom_text(aes(label = percent(VLS, 1)), na.rm = TRUE,
-            hjust = -.2, vjust = -0.7,family = "Source Sans Pro") +
   geom_point(aes(y = endpoints), na.rm = TRUE) +
   scale_fill_identity() +
   scale_y_continuous(label = percent, 
-                     breaks = seq(0, 1, .25)) +
+                     breaks = seq(0, 1, .3)) +
+  scale_x_discrete(breaks = unique(df_viz$period)[grep("FY2(1|2)Q(2|4)", unique(df_viz$period))]) +
   scale_color_identity() +
   si_style_ygrid() +
   coord_cartesian(clip = "off") +
   labs(x = NULL, y = NULL,
-       title = glue("VLS remains strong, but children and AYP lag behind adults for VLS" %>% toupper()),
+       title = glue("VLS remains strong, but AYP and children lag behind adults" %>% toupper()),
        #subtitle = "CHLIV from <1 to 19 years of age",
-       caption = glue("{metadata$caption}"))
+       caption = glue("VLS = TX_PVLS/TX_PVLS_D
+                       Adult = ages 15+, AYP = Adolescent and Young People ages 15-24
+                       {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner"))
 
-    
+si_save(paste0(metadata$curr_pd, "_Q4Review_VLS_Age_Sex.png"),
+        path = "Images", 
+        width = 9.32, 
+        height = 5)
+
+# VLC
+
+df_viz %>% 
+  filter(period %in% c("FY21Q4", "FY22Q1", "FY22Q2", "FY22Q3", "FY22Q4")) %>%
+  mutate(endpoints = case_when(period %in% c(max(period), min(period))~VLC)) %>% 
+  ggplot(aes(period, VLC, group = group, color = burnt_sienna_light, fill = burnt_sienna_light))+
+  geom_area(alpha = .4, linewidth = .9, position = "identity") +
+  geom_hline(yintercept = .9, color = burnt_sienna, linetype = "dashed") +
+  geom_area(aes(y = VLC), fill = burnt_sienna_light, color = burnt_sienna_light, alpha = .4) +
+  facet_wrap(~factor(group, levels = c("Adult Female", "Adult Male", "AYP", "<15"))) +
+  geom_point(aes(y = endpoints), na.rm = TRUE) +
+  scale_fill_identity() +
+  scale_y_continuous(label = percent, 
+                     breaks = seq(0, 1, .3)) +
+  scale_x_discrete(breaks = unique(df_viz$period)[grep("FY2(1|2)Q(2|4)", unique(df_viz$period))]) +
+  scale_color_identity() +
+  si_style_ygrid() +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL,
+       title = glue("While all groups saw dips in Q2 VLC, they ended trending upwards" %>% toupper()),
+       #subtitle = "CHLIV from <1 to 19 years of age",
+       caption = glue("VLC = TX_PVLC_D / TX_CURR_LAG2
+                       Adult = ages 15+, AYP = Adolescent and Young People ages 15-24
+                       {metadata$caption}| USAID SI Analytics: Karishma Srikanth/Jessica Hoehner "))
+
+si_save(paste0(metadata$curr_pd, "_Q4Review_VLC_Age_Sex.png"),
+        path = "Images",
+        width = 9.32, 
+        height = 5)
