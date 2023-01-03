@@ -2,7 +2,7 @@
 # PURPOSE:  VLS by priority population
 # REF ID:   0df6589b 
 # LICENSE:  MIT
-# DATE:     2022-12-22
+# DATE:     2023-01-03
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -85,7 +85,7 @@
 
   # MUNGE -------------------------------------------------------------------
   
-  # filter out UKR
+  # filter out UKR, check for known issues
   # Peds, AYP, Adult F, Adult M, PBFW
   
   df_peds <- df %>% 
@@ -96,6 +96,7 @@
            operatingunit != "Ukraine",
            standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
                                            "Age/Sex/Indication/HIVStatus")) %>% 
+    resolve_knownissues() %>%
     sum_reshape(funding_agency, trendscoarse) %>% 
     filter(trendscoarse == "<15") %>% 
     get_vls(cat = "peds")
@@ -108,6 +109,7 @@
            operatingunit != "Ukraine",
            standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
                                            "Age/Sex/Indication/HIVStatus")) %>% 
+    resolve_knownissues() %>%
     sum_reshape(funding_agency, sex, trendscoarse) %>% 
     filter(trendscoarse == "15+") %>% 
     get_vls(cat = "sex") %>% 
@@ -123,8 +125,10 @@ df_ayp <- df %>%
            operatingunit != "Ukraine",
            standardizeddisaggregate %in% c("Age/Sex/HIVStatus",
                                            "Age/Sex/Indication/HIVStatus")) %>%
+  
   fltr_ayp() %>%
-    sum_reshape(funding_agency, trendscoarse) %>% 
+  resolve_knownissues() %>%
+  sum_reshape(funding_agency, trendscoarse) %>% 
   filter(trendscoarse == "AYP") %>% 
   get_vls(cat = "ayp")
 
