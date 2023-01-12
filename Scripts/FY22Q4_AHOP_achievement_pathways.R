@@ -23,10 +23,10 @@
 # IMPORT ----------------------------------------------------------------------
   
   df <- data.frame(pathway = factor(c("Pathway 1", "Pathway 1",
-                                  "Pathway 2", "Pathway 2",
-                                  "Pathway 3", "Pathway 3",
-                                  "Pathway 4", "Pathway 4",
-                                  "Pathway 5", "Pathway 5"), 
+                                      "Pathway 2", "Pathway 2",
+                                      "Pathway 3", "Pathway 3",
+                                      "Pathway 4", "Pathway 4",
+                                      "Pathway 5", "Pathway 5"), 
                                   levels = c("Pathway 1", "Pathway 2", 
                                              "Pathway 3", "Pathway 4", "Pathway 5"), 
                                   ordered = FALSE),
@@ -37,8 +37,16 @@
                                              "Achieved", "Partially Achieved"),
                                              levels = c("Achieved", "Partially Achieved"), 
                                              ordered = TRUE),
-                   milestone_status_FY22 = c(0, 3,  0, 0, 0, 8,0, 1, 2, 1),
-                   total_milestones_FY22 = c(10, 10, 16, 16, 17, 17, 7, 7, 11, 11), 
+                   milestone_status_FY22 = c(0, 5,  
+                                             0, 0, 
+                                             0, 9,
+                                             0, 1, 
+                                             2, 3),
+                   total_milestones_FY22 = c(10, 10, 
+                                             16, 16, 
+                                             17, 17, 
+                                             7, 7, 
+                                             11, 11), 
                    order_paths = as.numeric(c(3, 3, 5, 5, 2, 2, 4, 4, 1, 1))) %>%
     arrange(order_paths)
 
@@ -63,8 +71,8 @@
     si_style_xgrid() +
     labs(
       x = NULL, y = NULL, fill = NULL,
-      title = glue("Most pathways making progress towards full or partial achievement of their milestones") %>%
-        toupper,
+      title = glue("Most pathways making progress towards 
+                   full or partial achievement of their milestones as of FY22") %>% toupper,
       caption = glue("Source: AHOP Goals, IRs, and Milestones 
                       USAID SI Analytics: Jessica Hoehner | ref id: {ref_id}")) +
     theme(panel.spacing = unit(.5, "line"),
