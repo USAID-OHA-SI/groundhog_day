@@ -21,13 +21,12 @@
     
   # SI specific paths/functions  
     load_secrets()
-    merdata <- file.path(glamr::si_path("path_msd"))
     
-    file_path <- return_latest(folderpath = merdata, pattern = "OU_IM_FY20")
+    file_path <- "OU_IM_FY20-23"
 
    # Grab metadata
     
-    get_metadata(file_path)
+   get_metadata()
     
    msd_source <- metadata$source
    curr_pd <- metadata$curr_pd
@@ -36,12 +35,14 @@
    caption <- metadata$caption
     
 # LOAD DATA ==================================================================== 
+   
+   msd <- si_path() %>%
+     return_latest(file_path) %>%
+     read_msd()
 
-  msd <- read_msd(file_path)
-
- # Import list of PEPFAR countries in regions from DATIM
- df_meta <- grabr::get_outable(datim_user(),datim_pwd()) %>%
-   select(country, country_iso)
+   # Import list of PEPFAR countries in regions from DATIM
+   df_meta <- grabr::get_outable(datim_user(),datim_pwd()) %>%
+     select(country, country_iso)
 
 # MUNGE ============================================================================
   
