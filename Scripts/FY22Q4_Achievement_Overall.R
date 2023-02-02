@@ -76,7 +76,7 @@ df_achv <- df %>%
   #mutate(TX_IIT= sum(TX_ML_IIT_less_three_mo, TX_ML_IIT_more_three_mo, na.rm = T)) %>% 
   #ungroup() %>%
   filter(funding_agency == "USAID",
-         operatingunit != "Ukraine",
+         #operatingunit != "Ukraine",
          fiscal_year == curr_fy,
          indicator %in% ind_sel) 
  
