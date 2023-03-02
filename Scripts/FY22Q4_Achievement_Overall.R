@@ -1,22 +1,12 @@
-# PROJECT:  rebooTZ
-# AUTHOR:   A.Chafetz | USAID
-# PURPOSE:  provide additional FY21Q3 partner review slides
+# PROJECT:  groundhogday
+# AUTHOR:   A.Chafetz, N.Petrovic, K.Srikanth | USAID
+# PURPOSE:  FY22Q4 global achievement
+# REF ID:   3adb8fa1 
 # LICENSE:  MIT
 # DATE:     2021-08-19
-# UPDATED:  2021-08-20
+# UPDATED:  2023-03-02
+# NOTE:     Adapted from rebootTZ FY21Q3 partner revide
 
-
-# SOURCE META DATA --------------------------------------------------------
-
-# DATIM DATA GENIE
-# PSNU By IM
-# DATIM data as of: 08/14/2021 21:59:04 UTC
-# Genie report updated: 08/19/2021 01:43:13 UTC
-# 
-# Current period(s): 2020 Target,  2020 Q1,  2020 Q2,  2020 Q3,  2020 Q4,  2021 Target,  2021 Q1,  2021 Q2,  2021 Q3 
-
-# Operating Unit: Tanzania
-# Daily/Frozen: Daily
 
 # DEPENDENCIES ------------------------------------------------------------
 
@@ -38,21 +28,23 @@ library(ggrepel)
 # GLOBAL VARIABLES --------------------------------------------------------
 
 load_secrets()
+
+ref_id <- "3adb8fa1" #id for adorning to plots, making it easier to find on GH
+
 merdata <- file.path(glamr::si_path("path_msd"))
 file_path <- return_latest(folderpath = merdata,
-pattern = "OU_IM_FY20-23")
+                           pattern = "OU_IM")
 
 #select indicators
 ind_sel <- c("HTS_TST","HTS_TST_POS", "TX_NEW", "TX_CURR", "TX_PVLS_D", "TX_PVLS", 
              "PrEP_NEW", "VMMC_CIRC", "OVC_SERV", "KP_PREV", "PMTCT_EID", "TB_PREV")
 
 #caption info for plotting
-source <- source_info(file_path)
+get_metadata(file_path, caption_note = "US Agency for International Development")
 
 #current FY and quarter
-get_metadata(file_path)
-curr_fy <- source_info(file_path, return = "fiscal_year")
-curr_qtr <- source_info(file_path, return = "quarter")
+curr_fy <- metadata$curr_fy
+curr_qtr <- metadata$curr_qtr
 
 clean_number <- function(x, digits = 0){
   dplyr::case_when(x >= 1e9 ~ glue("{round(x/1e9, digits)}B"),
@@ -64,7 +56,7 @@ clean_number <- function(x, digits = 0){
 
 # IMPORT ------------------------------------------------------------------
 
-df <- read_msd(file_path)   
+df <- read_psd(file_path)   
 
 
 # MUNGE -------------------------------------------------------------------
@@ -80,17 +72,19 @@ df_achv <- df %>%
          fiscal_year == curr_fy,
          indicator %in% ind_sel) 
  
+#remove known issues
+
+df_achv <- resolve_knownissues(df_achv)
 
 # MUNGE - GLOBAL/OU ACHIEVEMENT ---------------------------------------------
 
 ## Aggregating results & targets at the global level for each indicator
 df_achv <- df_achv %>% 
   bind_rows(df_achv %>% 
-              mutate(operatingunit = "GLOBAL",
-                     operatingunituid = "GLOBAL")) %>% 
+              mutate(country = "GLOBAL")) %>% 
   filter(standardizeddisaggregate %in% c("Total Numerator", "Total Denominator")) %>% 
-  group_by(fiscal_year, operatingunit, operatingunituid, indicator) %>% 
-  summarize(across(c(targets, cumulative), sum, na.rm = TRUE), 
+  group_by(fiscal_year, country, indicator) %>% 
+  summarize(across(c(targets, cumulative), \(x) sum(x, na.rm = TRUE)), 
             .groups = "drop")
 
 #calculate achievement and add colors 
@@ -99,8 +93,8 @@ df_achv <- df_achv %>%
 
 #viz adjustments
 df_achv_viz <- df_achv %>% 
-  mutate(global_achv = case_when(operatingunit == "GLOBAL" ~ achievement),
-         achievement = ifelse(operatingunit == "GLOBAL", NA, achievement),
+  mutate(global_achv = case_when(country == "GLOBAL" ~ achievement),
+         achievement = ifelse(country == "GLOBAL", NA, achievement),
          indicator = factor(indicator, ind_sel),
          baseline_pt_1 = 0,
          baseline_pt_2 = .25,
@@ -111,14 +105,14 @@ df_achv_viz <- df_achv %>%
 
 #adjust facet label to include indicator and national values
 df_achv_viz <- df_achv_viz %>% 
-  mutate(ind_w_glob_vals = case_when(operatingunit == "GLOBAL" & is.na(targets) ~ 
+  mutate(ind_w_glob_vals = case_when(country == "GLOBAL" & is.na(targets) ~ 
                                        glue("**{indicator}**<br><span style = 'font-size:11pt;'>No MER reporting</span>"),
-                                     operatingunit == "GLOBAL" ~ 
+                                     country == "GLOBAL" ~ 
                                        glue("**{indicator}**<br><span style = 'font-size:11pt;'>{clean_number(cumulative)} / 
                                             {clean_number(targets)}</span>")),
-          operatingunit = case_when(operatingunit == "Western Hemisphere Region" ~ "WHR",
-                                    operatingunit == "West Africa Region" ~ "WAR", 
-                                    operatingunit == "Democratic Republic of the Congo" ~ "DRC", TRUE ~ operatingunit)) %>% 
+          country = case_when(country == "Western Hemisphere Region" ~ "WHR",
+                                    country == "West Africa Region" ~ "WAR", 
+                                    country == "Democratic Republic of the Congo" ~ "DRC", TRUE ~ country)) %>% 
   group_by(indicator) %>% 
   mutate(rank_worst=rank(achievement, ties.method="min")) %>%
   fill(ind_w_glob_vals, .direction = "downup") %>% 
@@ -129,7 +123,7 @@ df_achv_viz <- df_achv_viz %>%
 
 # VIZ - ACHIEVEMENT GLOBAL -------------------------------------------------------
 df_achv_viz %>% 
-  filter(operatingunit == "GLOBAL") %>% 
+  filter(country == "GLOBAL") %>% 
   ggplot(aes(achievement, indicator, color = achv_color)) +
   geom_blank() + # creates blank canvas +
   geom_linerange(aes(xmin = 0, xmax = 1.1, y = 1), color = "#D3D3D3") +
@@ -204,7 +198,7 @@ df_achv_viz %>%
 df_achv_viz %>% 
   filter(
    # (rank_worst<4 & achievement<0.9)|
-   #   operatingunit == "GLOBAL",
+   #   country == "GLOBAL",
          indicator %in% c("PrEP_NEW", "HTS_TST_POS", "TX_CURR", "TX_PVLS")) %>%
   ggplot(aes(achievement, indicator, color = achv_color)) +
   geom_blank() + # creates blank canvas +
@@ -221,7 +215,7 @@ df_achv_viz %>%
   geom_text(aes(global_achv, label = percent(global_achv, 1)), na.rm = TRUE,
             position=position_nudge(y=0.3),
             color = "#202020", family = "Source Sans Pro", size = 10/.pt) +
-  geom_text_repel(aes(achievement, label=operatingunit), check_overlap=FALSE,
+  geom_text_repel(aes(achievement, label=country), check_overlap=FALSE,
             color = "#202020", family = "Source Sans Pro", size = 10/.pt)+
   coord_cartesian(clip = "off") + # default decides how much to show - expands padding
   scale_x_continuous(limit=c(0,1.1),oob=scales::squish, breaks = seq(0, 1.25, .25), label = percent_format(1)) + #capping achievement at 110
@@ -243,3 +237,59 @@ df_achv_viz %>%
   si_save(glue("Graphics/FY{curr_fy}Q{curr_qtr}_achv_ou_lagging.svg"))
   si_save(glue("Images/FY{curr_fy}Q{curr_qtr}_achv_ou_lagging.png"))
 
+  
+# VIZ - EXPORT FOR EACH XWA COUNTRY ---------------------------------------
+
+  xwa_cntry <- pepfar_country_list %>% 
+    filter(operatingunit == "West Africa Region") %>% 
+    select(country, country_iso)
+  
+  
+  plot_achv <- function(cntry, cntry_iso, export = TRUE){
+    
+    df_cntry <- df_achv_viz %>% 
+      filter(country == cntry)
+    
+    if(nrow(df_cntry) == 0)
+      return(NULL)
+    
+    viz <- df_cntry %>% 
+      ggplot(aes(achievement, indicator, color = achv_color)) +
+      geom_blank() + # creates blank canvas +
+      geom_linerange(aes(xmin = 0, xmax = 1.1, y = 1), color = "#D3D3D3") +
+      geom_point(aes(x=baseline_pt_1), shape = 3, color = "#D3D3D3") +
+      geom_point(aes(x=baseline_pt_2), shape = 3, color = "#D3D3D3") +
+      geom_point(aes(x=baseline_pt_3), shape = 3, color = "#D3D3D3") +
+      geom_point(aes(x=baseline_pt_4), shape = 3, color = "#D3D3D3") +
+      geom_point(aes(x=baseline_pt_5), shape = 3, color = "#D3D3D3") +
+      geom_point(aes(achievement), size = 12, alpha = 1, na.rm = TRUE, 
+                 position=position_nudge(y=0)) +
+      geom_text(aes(achievement, label = percent(achievement, 1)), na.rm = TRUE,
+                position=position_nudge(y=0),
+                color = "#202020", family = "Source Sans Pro", size = 10/.pt) +
+      coord_cartesian(clip = "off") + # default decides how much to show - expands padding
+      scale_x_continuous(limit=c(0,1.1),oob=scales::squish) + #capping achievement at 110
+      scale_color_identity() + #whatever value is defined by color -- use that value from data frame
+      facet_wrap(~ind_w_glob_vals, nrow=2, scales = "free_y") +
+      labs(x = NULL, y = NULL,
+           title = glue("FY{str_sub(curr_fy, start = -2)}Q{curr_qtr} USAID/{cntry} Target Achievement") %>% toupper,
+           caption = glue("Target achievement capped at 110%
+                        {metadata$source}")) +
+      si_style_nolines() +
+      theme(axis.text.x = element_blank(),
+            axis.text.y = element_blank(),
+            plot.subtitle = element_markdown(),
+            strip.text = element_markdown(),
+            panel.spacing.y = unit(0, "lines"))
+    
+    if(export == TRUE){
+      si_save(glue("Images/FY{str_sub(curr_fy, start = -2)}Q{curr_qtr}_achv_USAID-{cntry_iso}.png"))
+    } else {
+      return(viz)
+    }
+    
+  }
+  
+  pmap(xwa_cntry, 
+       ~plot_achv(..1, ..2, TRUE))
+  
