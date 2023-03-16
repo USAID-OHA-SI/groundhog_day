@@ -61,7 +61,7 @@
     filter(
       (usaid_region == "LAC") |
         (operatingunit == "Global" | operatingunit == "Western Hemisphere Region"),
-      indicator %in% c("HTS_TST_POS", "TX_NEW", "KP_PREV")) %>%
+      indicator %in% c("KP_PREV","TX_CURR","HTS_TST_POS")) %>%
     mutate(
       operatingunit = if_else(operatingunit %in% c(
         "Western Hemisphere Region",
@@ -69,7 +69,7 @@
       "LAC", operatingunit),
       indicator = factor(indicator,
         levels =
-          c("HTS_TST_POS", "TX_NEW", "KP_PREV"))) %>%
+          c("KP_PREV", "TX_CURR","HTS_TST_POS"))) %>%
     group_by(fiscal_year, agency, operatingunit, indicator, indicator_plain, agg_type) %>%
     summarise(across(targets:cumulative, sum, na.rm = TRUE)) %>%
     arrange(indicator)
