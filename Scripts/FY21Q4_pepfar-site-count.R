@@ -3,7 +3,7 @@
 # PURPOSE:  identify number of PEPFAR sites reporting
 # LICENSE:  MIT
 # DATE:     2021-12-10
-# UPDATED:  2022-09-16
+# UPDATED:  2023-03-22
 
 
 # NOTES AND ASSUMPTIONS ---------------------------------------------------
@@ -25,7 +25,8 @@
 # 6. Nulls, Zero, Negative Numbers - Filters out NULLs and zeros, with the 
 #    exception of SC_CURR, SC_ARVDISP, and HRH_PRE, which can have zero values.
 # 7. Mil Sites - excludes military sites that exist in the list on PEPFAR 
-#    Sharepoint (ICPI > Clusters > DAQ > PEPFAR Site Types > mil_sites.csv)
+#    Sharepoint (ICPI > Clusters > DAQ > PEPFAR Site Counts > Archive > 
+#    mil_sites.csv)
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -253,6 +254,7 @@
                    format(Sys.Date(), "%Y%m%d"), ".csv"), 
             na = "")
     
+  
 # PREP WORK ---------------------------------------------------------------
 
 
