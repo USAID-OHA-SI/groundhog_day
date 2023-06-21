@@ -42,7 +42,7 @@ clean_number <- function(x, digits = 0){
 
 # IMPORT ------------------------------------------------------------------
 
-df <- read_csv(filepath)
+df <- read_csv(filepath) %>% distinct()
 
 # MUNGE -------------------------------------------------------------------
 
@@ -54,23 +54,26 @@ df_viz <- df %>%
 
 
 df_viz %>% 
+  filter(fiscal_year != "FY20") %>% 
   ggplot(aes(fiscal_year, targets, group = funding_agency,
              color = fill_color, fill = fill_color)) +
   geom_blank(aes(y = 1.1 * targets)) +
   geom_line(size = 1.5) +
-  geom_point(shape = 21, size = 10, stroke = 2) +
+  geom_point(shape = 21, size = 12, stroke = 2) +
   scale_fill_identity() +
   scale_color_identity() +
-  geom_text(aes(label = df_viz$funding_agency,
-                family = "Source Sans Pro",
-                size = 10/.pt) +
+  # geom_text(aes(label = df_viz$funding_agency,
+  #               family = "Source Sans Pro",
+  #               size = 10/.pt) +
               # facet_wrap(~funding_agency, nrow = 3) +
               #si_style_nogrid() +
               scale_y_continuous(label = label_number(scale_cut = cut_short_scale())) +
               geom_text(aes(label = clean_number(targets)), color = "white",
                         family = "Source Sans Pro",
-                        size = 10/.pt) +
+                        size = 12/.pt) +
               expand_limits(y = .2) +
-              si_style_nolines() +
-              labs(x = NULL, y = NULL) +
-              theme(axis.text.y = element_blank())
+              si_style_ygrid() +
+              labs(x = NULL, y = NULL) 
+
+
+si_save("Graphics/remake-recency.svg")
