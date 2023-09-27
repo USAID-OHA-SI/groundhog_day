@@ -19,6 +19,7 @@
   library(glue)
   library(readxl)
   library(googlesheets4)
+  library(gt)
   
 
 # GLOBAL VARIABLES --------------------------------------------------------
@@ -33,6 +34,8 @@
   
   
   data_folder <- "Data/"
+  
+  ref_id <- "a04654e7"
 
 # IMPORT ------------------------------------------------------------------
   
@@ -78,13 +81,12 @@ df_viz1 <- df_tdy %>%
     purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
     request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>%
   group_by(fiscal_year) %>% 
-  mutate(loe_days = as.numeric(loe_days)) %>% 
-  summarise(across(starts_with("loe_days"), sum, na.rm = TRUE), .groups = "drop") %>% 
+  mutate(duration = as.numeric(duration)) %>% 
+  summarise(across(starts_with("duration"), sum, na.rm = TRUE), .groups = "drop") %>% 
   left_join(df_tdy_total, by = "fiscal_year")
 
 
 # Total TDY days vs COP budget
-  # should this remove m&o? USAID WCF?
 
 #this currently includes USAID WCF + M&O
 df_budget_viz <- df_tdy %>%
@@ -102,26 +104,53 @@ df_budget_viz <- df_tdy %>%
                                pepfar_ou %in% c("Central & South America", "Caribbean") ~ "Western Hemisphere",
                                TRUE ~ pepfar_ou)) %>% 
   group_by(fiscal_year, pepfar_ou) %>% 
-  mutate(loe_days = as.numeric(loe_days)) %>% 
-  summarise(across(starts_with("loe_days"), sum, na.rm = TRUE), .groups = "drop") %>%
+  mutate(duration = as.numeric(duration)) %>% 
+  summarise(across(starts_with("duration"), sum, na.rm = TRUE), .groups = "drop") %>%
   left_join(df_tdy_budget, by = c('pepfar_ou' = "ou")) %>% 
   mutate(total_budget = sum(fy23_budget_usaid)) %>% 
   mutate(budget_share = fy23_budget_usaid / total_budget) %>% 
   arrange(desc(budget_share)) 
 
+# TDY purpose visuals ------
 
-# df_tdy %>%
-#   janitor::clean_names() %>% 
-#   filter(
-#     bureau == "BUREAU - GH",
-#     fiscal_year == "FY2023",
-#     office == "OHA",
-#     pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
-#                      "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
-#                      "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
-#     purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
-#     request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>% 
-#   distinct(benefitting_country, pepfar_ou) %>% View()
+df_purpose <- df_tdy %>%
+  janitor::clean_names() %>% 
+  filter(
+    bureau == "BUREAU - GH",
+    office == "OHA",
+    fiscal_year == "FY2023",
+    # pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+    #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+    #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+  #  purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
+    request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>% 
+  count(purpose_category, purpose_name) %>% 
+  group_by(purpose_category) %>% 
+  mutate(total_cat = sum(n)) %>% 
+  ungroup() %>% 
+  rename(total_subcat = n)
+
+
+# DIVISION VIZ -----------
+df_div <- df_tdy %>%
+  janitor::clean_names() %>% 
+  filter(
+    bureau == "BUREAU - GH",
+    fiscal_year == "FY2023",
+    office == "OHA",
+    pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+                     "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+                     "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+    purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
+    request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>%
+  mutate(pepfar_ou = case_when(pepfar_ou == "Congo, Democratic Republic of the" ~ "DRC",
+                               pepfar_ou %in% c("Central & South America", "Caribbean") ~ "Western Hemisphere",
+                               TRUE ~ pepfar_ou)) %>% 
+  count(pepfar_ou, division) %>% 
+  group_by(division) %>% 
+  mutate(div_total = sum(n)) %>% 
+  ungroup() %>% 
+  rename(ou_total = n)
 
 
 # VIZ ----------------------------------------------------------------------
@@ -155,12 +184,12 @@ v1 <- df_viz1 %>%
 v2 <- df_viz1 %>% 
   filter(fiscal_year != "FY2024") %>% 
   mutate(color = scooter_med) %>% 
-  ggplot(aes(x = fiscal_year, y = loe_days, group= color, color = color, fill = color)) +
+  ggplot(aes(x = fiscal_year, y = duration, group= color, color = color, fill = color)) +
   geom_col() +
   scale_fill_identity() + 
   scale_color_identity() + 
   si_style_ygrid() +
-  geom_text(aes(label = comma(loe_days), size = 14/.pt,
+  geom_text(aes(label = comma(duration), size = 14/.pt,
                 vjust = -0.5,
                 #position = "stack",
                 color = grey80k,
@@ -180,20 +209,18 @@ v1 / v2 +
 si_save("Graphics/01_TDY_total.svg")
 
 
-# TDY VS BUDGEThttp://127.0.0.1:35459/graphics/plot_zoom_png?width=1126&height=535
-
-
+# TDY VS BUDGET VIZ --
 
 df_budget_viz %>% 
-  mutate(fill_color = case_when(budget_share > 0.05 & loe_days > 125 ~ genoa,
-                                budget_share > 0.05 & loe_days <= 125 ~ golden_sand,
-                                budget_share <= 0.05 & loe_days > 125 ~ scooter,
-                                budget_share <= 0.05 & loe_days <= 125 ~ old_rose)) %>% 
-  ggplot(aes(x=budget_share, y=loe_days, color = fill_color)) +
+  mutate(fill_color = case_when(budget_share > 0.05 & duration > 500 ~ genoa,
+                                budget_share > 0.05 & duration <= 500 ~ golden_sand,
+                                budget_share <= 0.05 & duration > 500 ~ scooter,
+                                budget_share <= 0.05 & duration <= 500 ~ old_rose)) %>% 
+  ggplot(aes(x=budget_share, y=duration, color = fill_color)) +
   geom_point(size=3) +
-  geom_hline(yintercept = 125, colour = "#D3D3D3") +
+  geom_hline(yintercept = 500, colour = "#D3D3D3") +
   geom_vline(xintercept = .050, colour = "#D3D3D3") +
-  scale_x_continuous(labels = scales::percent) +
+    scale_x_continuous(labels = scales::percent) +
   scale_color_identity() +
   ggrepel::geom_text_repel(aes(label = pepfar_ou), size = 4, na.rm = TRUE, family = "Source Sans Pro") +
   si_style_nolines() +
@@ -204,3 +231,116 @@ df_budget_viz %>%
        caption = glue("Source: {metadata$source} | Ref id: {ref_id}"))
 
 si_save("Graphics/02_TDY_BUDGET.svg")
+
+
+# Purpose viz ---
+
+v3 <- df_purpose %>% 
+  distinct(purpose_category, total_cat) %>% 
+  mutate(purpose_category = case_when(purpose_category == "A. Field/Mission Managed Services & Technical Assistance" ~ "Field/Mission Services & TA",
+                                      purpose_category == "B. Conference/Meeting/Workshop Attendance and Presenting" ~ "Conferences/Meetings/Workshops",
+                                      purpose_category == "C. Donor coordination" ~ "Donor coordination",
+                                      purpose_category == "E. Not for Direct Mission Support" ~ "Not Direct Mission Support",
+                                      purpose_category == "D. Other" ~ "Other",
+         TRUE ~ purpose_category)) %>% 
+  mutate(fill_color = ifelse(purpose_category == "Field/Mission Services & TA", golden_sand, scooter)) %>% 
+  mutate(total = sum(total_cat),
+         share= total_cat/total) %>% 
+  ggplot(aes(x = fct_reorder(purpose_category, total_cat), y = total_cat, fill = fill_color)) +
+  geom_col() +
+  coord_flip() +
+  si_style_xgrid() +
+  scale_fill_identity() +
+  geom_text(aes(y = total_cat,
+                label = total_cat), size = 12/.pt, hjust = -0.2,
+            #position = "stack",
+            #  color = "white",
+            family = "Source Sans Pro") +
+  geom_text(aes(y = total_cat,
+                label = percent(share, 1)), size = 12/.pt, hjust = -0.2,vjust = 2,
+            #position = "stack",
+            #  color = "white",
+            family = "Source Sans Pro Light") +
+  labs(x = NULL, y = NULL,
+       title = "The primary function of OHA's travel is TA, but conference attendance and other purposes also takes up a significant portion of TDYs" %>% toupper(),
+       subtitle = "Number of FY23 OHA TDYs per purpose type",
+       caption = glue("Source: {metadata$source} | Ref id: {ref_id}"))
+
+
+v4 <- df_purpose %>% 
+  mutate(purpose_category = case_when(purpose_category == "A. Field/Mission Managed Services & Technical Assistance" ~ "Field/Mission Services & TA",
+                                      purpose_category == "B. Conference/Meeting/Workshop Attendance and Presenting" ~ "Conferences/Meetings/Workshops",
+                                      purpose_category == "C. Donor coordination" ~ "Donor coordination",
+                                      purpose_category == "E. Not for Direct Mission Support" ~ "Not Direct Mission Support",
+                                      purpose_category == "D. Other" ~ "Other",
+                                      TRUE ~ purpose_category)) %>% 
+  filter(purpose_category == "Field/Mission Services & TA") %>% 
+  ggplot(aes(x = fct_reorder(purpose_name, total_subcat), y = total_subcat, fill = golden_sand, alpha = 0.7)) +
+  geom_col() +
+  coord_flip() +
+  si_style_nolines() +
+  scale_fill_identity() +
+  scale_alpha_identity() +
+  geom_text(aes(y = total_subcat,
+                label = total_subcat), size = 12/.pt, hjust = -0.2,
+            #position = "stack",
+            #  color = "white",
+            family = "Source Sans Pro") +
+  labs(x = NULL, y = NULL,
+     #  title = "The primary function of OHA's travel is TA, but conference attendance and other purposes also takes up a significant portion of TDYs" %>% toupper(),
+       subtitle = "Type of OHA Field Service/TA Support TDYs",
+       caption = glue("Source: {metadata$source} | Ref id: {ref_id}"))
+
+
+v3 + v4 +
+  plot_layout(width = c(2,1)) 
+
+si_save("Graphics/04_TDY_purpose.svg")
+
+#Division level viz ----
+
+div1 <- df_div %>% 
+  distinct(division, div_total) %>% 
+  ggplot(aes(x = fct_reorder(division, div_total), y = div_total, fill = denim)) +
+  geom_col() +
+  coord_flip() +
+  si_style_xgrid() +
+  scale_fill_identity() +
+  geom_text(aes(y = div_total,
+                label = div_total), size = 12/.pt, hjust = -0.2,
+            #position = "stack",
+              color = grey80k,
+            family = "Source Sans Pro") +
+  labs(x = NULL, y = NULL,
+       title = "Of the 540 TDYs in FY23, PCT and SIEI have the most TDYs" %>% toupper(),
+       subtitle = "Number of FY23 OHA TA TDYs by division")
+
+div2 <- df_div %>% 
+  distinct(pepfar_ou, division, ou_total) %>% 
+  ggplot(aes(x = division, 
+             y = fct_reorder(pepfar_ou, ou_total), 
+             fill = ou_total)) +
+  geom_tile(color = "white", 
+            size = 0.9) +
+  geom_text(aes(label = ou_total,
+                color = if_else(ou_total >= 14, "white", grey90k)),
+            size = 3,
+            family= "Source Sans Pro") +
+  scale_x_discrete(position = "top", 
+                   guide = guide_axis(n.dodge = 2)) +
+  scale_fill_si(palette = "denims", discrete = FALSE) +
+  scale_color_identity() +
+  si_style_nolines() +
+  theme(panel.background = element_rect(fill = "#f6f6f6", color ="white"),
+        legend.position = "none") +
+  labs(x = NULL, 
+       y = NULL,
+       subtitle = "Top 10 FY23 Technical Assistance TDY Destinations by OHA Division",
+      # subtitle = "From August 2023 patient audit tool",
+       caption = glue("Source: {metadata$source} | Ref id: {ref_id}")) 
+
+
+div1 / div2 + 
+  plot_layout(heights = c(1,2.5))
+
+si_save("Graphics/05_division.svg")
