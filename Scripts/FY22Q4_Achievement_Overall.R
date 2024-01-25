@@ -4,17 +4,17 @@
 # REF ID:   3adb8fa1 
 # LICENSE:  MIT
 # DATE:     2021-08-19
-# UPDATED:  2023-03-02
-# NOTE:     Adapted from rebootTZ FY21Q3 partner revide
+# UPDATED:  2024-01-25
+# NOTE:     Adapted from rebootTZ FY21Q3 partner revide; Updated for FY23Q4 
 
 
 # DEPENDENCIES ------------------------------------------------------------
 
 library(tidyverse)
+library(systemfonts)
 library(glitr)
 library(glamr)
 library(gophr)
-library(extrafont)
 library(scales)
 library(tidytext)
 library(patchwork)
@@ -65,16 +65,17 @@ df <- read_psd(file_path)
 # MUNGE -------------------------------------------------------------------
 
 #subset to key indicators
+ 
 df_achv <- df %>% 
   clean_indicator() %>%
   #rowwise() %>% 
   #mutate(TX_IIT= sum(TX_ML_IIT_less_three_mo, TX_ML_IIT_more_three_mo, na.rm = T)) %>% 
   #ungroup() %>%
   filter(funding_agency == "USAID",
-         operatingunit != "Ukraine",
+         !operatingunit %in% c("Ukraine", "Nigeria", "Tanzania"), #exclude TZA and NGA globally for FY23Q4 because of DQA issues 
          fiscal_year == curr_fy,
-         indicator %in% ind_sel) 
- 
+         indicator %in% ind_sel)
+
 #remove known issues
 
 df_achv <- resolve_knownissues(df_achv)
