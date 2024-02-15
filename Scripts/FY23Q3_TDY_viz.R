@@ -1,9 +1,9 @@
 # AUTHOR:   K. Srikanth | USAID
-# PURPOSE:  FY23Q3 review: TDY analysis
+# PURPOSE:  FY23Q3 review: TDY analysis (update for Fy23Q4)
 # REF ID:   a04654e7 
 # LICENSE:  MIT
 # DATE:     2023-09-25
-# UPDATED: 
+# UPDATED: 2024-02-13
 
 # DEPENDENCIES ------------------------------------------------------------
   
@@ -30,7 +30,7 @@
   # Grab metadata
     get_metadata() 
     
-    metadata$source <- "UTRAMS data, pulled Sept 6, 2023"
+    metadata$source <- "UTRAMS data [as of FY23Q4]"
   
   
   data_folder <- "Data/"
@@ -39,9 +39,19 @@
 
 # IMPORT ------------------------------------------------------------------
   
-  df_tdy <- data_folder %>% 
+  g_id <- "1TasP3wkmDdTwaDqn9IjRQVOTPfZFtjSdfXo-myeBljk"
+  
+ df_tdy <- read_sheet(g_id, sheet = "UTRAMS Data")
+  
+  # df_tdy2 <- data_folder %>% 
+  #   return_latest("OHA Travel Data Analysis.xlsx") %>% 
+  #   read_xlsx(sheet = "Raw Data", col_types = "text")
+  
+cntry_xwalk <- data_folder %>% 
     return_latest("OHA Travel Data Analysis.xlsx") %>% 
-    read_xlsx(sheet = "Raw Data", col_types = "text")
+    read_xlsx(sheet = "PEPFAR Crosswalk", col_types = "text")
+  
+
 
   df_tdy_budget <- data_folder %>% 
     return_latest("OHA Travel Data Analysis.xlsx") %>% 
@@ -52,21 +62,24 @@
            fy23_budget_usaid = `FY2023 USAID Budget`)
 
 
+ df_tdy <- df_tdy %>%
+    left_join(cntry_xwalk) %>% 
+    janitor::clean_names() %>% 
+    mutate(fiscal_year = substr(start_date_fiscal_quarter, start = 1, stop = 6))
 
 # MUNGE -------------------------------------------------------------------
   
 #dataset for TDY totals per FY
 df_tdy_total <-  df_tdy %>%
-    janitor::clean_names() %>% 
+  #  mutate(fiscal_year = substrRight(start_date_fiscal_quarter, 6))
     filter(
           bureau == "BUREAU - GH",
            office == "OHA",
-           pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
-                            "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
-                            "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+           # pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+           #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+           #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
            purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
-           request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>%
- # mutate(fy = substr(start_date_fiscal_quarter, start = 1, stop = 6)) %>% 
+           request_status %in% c("3. Complete")) %>%
   count(fiscal_year) %>% 
   rename(total_tdys = n)
 
@@ -75,11 +88,11 @@ df_viz1 <- df_tdy %>%
   filter(
     bureau == "BUREAU - GH",
     office == "OHA",
-    pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
-                     "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
-                     "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+    # pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+    #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+    #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
     purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
-    request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>%
+    request_status %in% c("3. Complete")) %>%
   group_by(fiscal_year) %>% 
   mutate(duration = as.numeric(duration)) %>% 
   summarise(across(starts_with("duration"), sum, na.rm = TRUE), .groups = "drop") %>% 
@@ -123,7 +136,7 @@ df_purpose <- df_tdy %>%
     #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
     #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
   #  purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
-    request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>% 
+    request_status %in% c("3. Complete")) %>% 
   count(purpose_category, purpose_name) %>% 
   group_by(purpose_category) %>% 
   mutate(total_cat = sum(n)) %>% 
@@ -131,18 +144,18 @@ df_purpose <- df_tdy %>%
   rename(total_subcat = n)
 
 
-# DIVISION VIZ -----------
+# DIVISION TA VIZ -----------
 df_div <- df_tdy %>%
   janitor::clean_names() %>% 
   filter(
     bureau == "BUREAU - GH",
     fiscal_year == "FY2023",
     office == "OHA",
-    pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
-                     "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
-                     "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+    # pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+    #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+    #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
     purpose_category == "A. Field/Mission Managed Services & Technical Assistance",
-    request_status %in% c("2. Lead Assigned", "2a. Supervisor approved", "3. Complete")) %>%
+    request_status %in% c("3. Complete")) %>%
   mutate(pepfar_ou = case_when(pepfar_ou == "Congo, Democratic Republic of the" ~ "DRC",
                                pepfar_ou %in% c("Central & South America", "Caribbean") ~ "Western Hemisphere",
                                TRUE ~ pepfar_ou)) %>% 
@@ -152,9 +165,46 @@ df_div <- df_tdy %>%
   ungroup() %>% 
   rename(ou_total = n)
 
+top15_oha_tdy <- df_div %>% 
+  group_by(pepfar_ou) %>% 
+  summarise(across(starts_with("ou_total"), sum, na.rm = T), .groups = "drop") %>% 
+  arrange(desc(ou_total)) %>% 
+  slice(1:15) %>% 
+  pull(pepfar_ou)
+  
+# DIVISION CONF VIZ -----------
+df_div_conf <- df_tdy %>%
+  janitor::clean_names() %>% 
+  filter(
+    bureau == "BUREAU - GH",
+    fiscal_year == "FY2023",
+    office == "OHA",
+    # pepfar_ou %ni% c("Denmark (incl. Greenland)", "Jordan", "Netherlands", "BUREAU - GH",
+    #                  "United Kingdom (Britain)", "United States of America", "Madagascar", "Malaysia",
+    #                  "United Arab Emirates", "Bangladesh", "Pacific Islands", "Sudan", "Switzerland"),
+    purpose_category == "B. Conference/Meeting/Workshop Attendance and Presenting",
+    request_status %in% c("3. Complete")) %>%
+  mutate(pepfar_ou = case_when(pepfar_ou == "Congo, Democratic Republic of the" ~ "DRC",
+                               pepfar_ou %in% c("Central & South America", "Caribbean") ~ "Western Hemisphere",
+                               TRUE ~ pepfar_ou)) %>% 
+  count(pepfar_ou, division) %>% 
+  group_by(division) %>% 
+  mutate(div_total = sum(n)) %>% 
+  ungroup() %>% 
+  rename(ou_total = n)
+
+top15_oha_conf <- df_div_conf %>% 
+  group_by(pepfar_ou) %>% 
+  summarise(across(starts_with("ou_total"), sum, na.rm = T), .groups = "drop") %>% 
+  arrange(desc(ou_total)) %>% 
+  slice(1:15) %>% 
+  pull(pepfar_ou)
+
 
 # VIZ ----------------------------------------------------------------------
-
+fy23_tdys <- df_viz1 %>% 
+  filter(fiscal_year =="FY2023") %>% 
+  pull(total_tdys)
 
 # TOTAL TDY COUNTS  
 v1 <- df_viz1 %>% 
@@ -173,10 +223,10 @@ v1 <- df_viz1 %>%
   scale_fill_identity() + 
   scale_color_identity() + 
   si_style_ygrid() +
-  scale_y_continuous(limits = c(0, 600)) +
+  scale_y_continuous(limits = c(0, 800)) +
   labs(x = NULL,
        y = NULL,
-       title = 'In FY23, OHA Technical Assistance TDYs returned to pre-pandemic levels with 540 total TDYs planned' %>% toupper(),
+       title = glue('In FY23, OHA Technical Assistance TDYs returned to pre-pandemic levels with {fy23_tdys} total TDYs planned') %>% toupper(),
        subtitle = "Total number of TDYs completed") +
   theme(axis.title = element_blank(),
         legend.position = "none")
@@ -189,6 +239,7 @@ v2 <- df_viz1 %>%
   scale_fill_identity() + 
   scale_color_identity() + 
   si_style_ygrid() +
+  scale_y_continuous(limits = c(0, 8000)) +
   geom_text(aes(label = comma(duration), size = 14/.pt,
                 vjust = -0.5,
                 #position = "stack",
@@ -249,6 +300,7 @@ v3 <- df_purpose %>%
   ggplot(aes(x = fct_reorder(purpose_category, total_cat), y = total_cat, fill = fill_color)) +
   geom_col() +
   coord_flip() +
+  scale_y_continuous(limits = c(0, 700)) +
   si_style_xgrid() +
   scale_fill_identity() +
   geom_text(aes(y = total_cat,
@@ -260,7 +312,7 @@ v3 <- df_purpose %>%
                 label = percent(share, 1)), size = 12/.pt, hjust = -0.2,vjust = 2,
             #position = "stack",
             #  color = "white",
-            family = "Source Sans Pro Light") +
+            family = "Source Sans Pro") +
   labs(x = NULL, y = NULL,
        title = "The primary function of OHA's travel is TA, but conference attendance and other purposes also takes up a significant portion of TDYs" %>% toupper(),
        subtitle = "Number of FY23 OHA TDYs per purpose type",
@@ -278,6 +330,7 @@ v4 <- df_purpose %>%
   ggplot(aes(x = fct_reorder(purpose_name, total_subcat), y = total_subcat, fill = golden_sand, alpha = 0.7)) +
   geom_col() +
   coord_flip() +
+  scale_y_continuous(limits = c(0, 300)) +
   si_style_nolines() +
   scale_fill_identity() +
   scale_alpha_identity() +
@@ -299,6 +352,9 @@ si_save("Graphics/04_TDY_purpose.svg")
 
 #Division level viz ----
 
+df_div <- df_div %>% 
+  mutate(division = str_remove(division, "OHA |OHA/"))
+
 div1 <- df_div %>% 
   distinct(division, div_total) %>% 
   ggplot(aes(x = fct_reorder(division, div_total), y = div_total, fill = denim)) +
@@ -312,16 +368,17 @@ div1 <- df_div %>%
               color = grey80k,
             family = "Source Sans Pro") +
   labs(x = NULL, y = NULL,
-       title = "Of the 540 TDYs in FY23, PCT and SIEI have the most TDYs" %>% toupper(),
+       title = "Of the 615 TA TDYs in FY23, PCT and SIEI have the most TDYs" %>% toupper(),
        subtitle = "Number of FY23 OHA TA TDYs by division")
 
 div2 <- df_div %>% 
+  filter(pepfar_ou %in% top15_oha_tdy) %>% 
   distinct(pepfar_ou, division, ou_total) %>% 
   ggplot(aes(x = division, 
              y = fct_reorder(pepfar_ou, ou_total), 
              fill = ou_total)) +
   geom_tile(color = "white", 
-            size = 0.9) +
+            size = 0.5) +
   geom_text(aes(label = ou_total,
                 color = if_else(ou_total >= 14, "white", grey90k)),
             size = 3,
@@ -335,12 +392,64 @@ div2 <- df_div %>%
         legend.position = "none") +
   labs(x = NULL, 
        y = NULL,
-       subtitle = "Top 10 FY23 Technical Assistance TDY Destinations by OHA Division",
+      # title = "Of the 615 TA TDYs in FY23, PCT and SIEI have the most TDYs" %>% toupper(),
+       subtitle = "Top 15 FY23 Technical Assistance TDY Destinations for OHA, by division",
       # subtitle = "From August 2023 patient audit tool",
        caption = glue("Source: {metadata$source} | Ref id: {ref_id}")) 
 
 
-div1 / div2 + 
-  plot_layout(heights = c(1,2.5))
+div1 / div2 +
+  plot_layout(heights = c(1,3))
 
-si_save("Graphics/05_division.svg")
+si_save("Graphics/05_division_TA.svg")
+
+#Division level conf viz ----
+
+df_div_conf <- df_div_conf %>% 
+  mutate(division = str_remove(division, "OHA |OHA/"))
+
+div1_conf <- df_div_conf %>% 
+  distinct(division, div_total) %>% 
+  ggplot(aes(x = fct_reorder(division, div_total), y = div_total, fill = "#b98abf")) +
+  geom_col() +
+  coord_flip() +
+  si_style_xgrid() +
+  scale_fill_identity() +
+  geom_text(aes(y = div_total,
+                label = div_total), size = 12/.pt, hjust = -0.2,
+            #position = "stack",
+            color = grey80k,
+            family = "Source Sans Pro") +
+  labs(x = NULL, y = NULL,
+       title = "Of the 327 Conference TDYs in FY23, SIEI has the most TDYs" %>% toupper(),
+       subtitle = "Number of FY23 OHA Conference TDYs by division")
+
+div2_conf <- df_div_conf %>% 
+  filter(pepfar_ou %in% top15_oha_tdy) %>% 
+  distinct(pepfar_ou, division, ou_total) %>% 
+  ggplot(aes(x = division, 
+             y = fct_reorder(pepfar_ou, ou_total), 
+             fill = ou_total)) +
+  geom_tile(color = "white", 
+            size = 0.5) +
+  geom_text(aes(label = ou_total,
+                color = if_else(ou_total >= 14, "white", grey90k)),
+            size = 3,
+            family= "Source Sans Pro") +
+  scale_x_discrete(position = "top", 
+                   guide = guide_axis(n.dodge = 2)) +
+  scale_fill_si(palette = "moody_blues", discrete = FALSE) +
+  scale_color_identity() +
+  si_style_nolines() +
+  theme(panel.background = element_rect(fill = "#f6f6f6", color ="white"),
+        legend.position = "none") +
+  labs(x = NULL, 
+       y = NULL,
+       # title = "Of the 615 TA TDYs in FY23, PCT and SIEI have the most TDYs" %>% toupper(),
+       subtitle = "Top 15 FY23 Conference TDY Destinations for OHA, by division",
+       # subtitle = "From August 2023 patient audit tool",
+       caption = glue("Source: {metadata$source} | Ref id: {ref_id}")) 
+
+
+div1_conf / div2_conf +
+  plot_layout(heights = c(1,3))
