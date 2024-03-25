@@ -47,10 +47,10 @@ options(scipen=999)
 
 #Current MSD
 filepath <- si_path() %>% 
-  return_latest("MER_Structured_Datasets_OU_IM_FY22-24")
+  return_latest("MER_Structured_Datasets_OU_IM_FY22-24") 
 
 # Grab metadata
-get_metadata(filepath) 
+metadata <- get_metadata(filepath) 
 
 # MSD PREP --------------------------------------
 
@@ -116,7 +116,63 @@ clean_number <- function(x, digits = 0){
   dplyr::case_when(x >= 1e9 ~ glue("{round(x/1e9, digits)} billion"),
                    x >= 1e6 ~ glue("{round(x/1e6, digits)} million"),
                    x >= 1e3 ~ glue("{round(x/1e3, digits)} thousand"),
+                   #x <= 1e3 ~ glue("{round(x/1e3, digits)} thousand"),
                    TRUE ~ glue("{x}"))
+}
+
+
+grab_qtr_totalnum <- function(df, indic) {
+ val <-  df %>%
+    filter(funding_agency == "USAID",
+           standardizeddisaggregate %in% c("Total Numerator"),
+           indicator %in% c(indic),
+           fiscal_year == metadata$curr_fy) %>%
+    group_by(funding_agency, indicator, fiscal_year) %>% 
+    summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>%
+    ungroup() %>% 
+    reshape_msd() %>%
+    filter(period == metadata$curr_pd) %>% 
+   # mutate(value= comma(value)) %>% 
+    pull(value)
+ 
+return(val)
+}
+
+
+grab_result_disagg <- function(df, indic, pop = NULL) {
+  
+  df_filter <- df %>%
+    filter(funding_agency == "USAID",
+           #standardizeddisaggregate %in% c("Age/Sex"),
+           indicator %in% c(indic),
+           fiscal_year == metadata$curr_fy,
+           use_for_age == "Y"
+    )
+  
+  if (pop == "AGYW") {
+    
+    df_filter <- df_filter %>% 
+      filter(sex == "Female",
+              target_age_2024 %in% c("15-24"))
+    
+  } else if (pop == "Peds") {
+    
+    df_filter <- df_filter %>% 
+      filter(target_age_2024 %in% c("01-09", "10-14"))
+  } else if (pop == "Youth") {
+     df_filter <- df_filter %>% 
+      filter(age_2019 %in% c("01-04", "05-09","10-14", "15-19", "20-24", "25-29"))
+  } else if (pop == "All") {
+    df_filter
+  }
+  
+  df_final <- df_filter %>% 
+    summarise(across(matches("targets|cumulative"), sum, na.rm = T)) %>% 
+    ungroup() %>% 
+    mutate(achv  = percent(cumulative/targets))
+  
+  return(df_final)
+  
 }
 
 #LP Function
@@ -195,7 +251,6 @@ pull_kp <- function(df, indic, val_type, clean = FALSE) {
   kp_val <- df %>%
     filter(funding_agency == "USAID",
            str_detect(standardizeddisaggregate, "KeyPop(?!\\/Status)"),
-           indicator %in% c("PrEP_NEW", "TX_CURR", "KP_PREV"),
            fiscal_year == metadata$curr_fy) %>%
     count(indicator, wt = .data[[wt_column]]) # Use dynamic weight
   
@@ -215,10 +270,7 @@ pull_kp <- function(df, indic, val_type, clean = FALSE) {
 
 ```
 
-**\
-**
-
-**STAYING THE COURSE ACROSS THE CASCADE (PREVENTION, TESTING, TREATMENT)**
+### **STAYING THE COURSE ACROSS THE CASCADE (PREVENTION, TESTING, TREATMENT)**
 
 In Q1, USAID had strong performance across prevention, care and treatment programs that are pivotal to achieving epidemic control across our OUs. HTS achievement and treatment growth were strong, with several additional countries hitting the goal of 95% viral suppression. Despite these strong results, interruptions in treatment have increased across PEPFAR and must be addressed. One potential solution is increased use of MMD, and for the first time this quarter **USAID globally had more clients on 6MMD than 3MMD.** Pediatric treatment, including access to MMD and VLC, continued to be a challenge. Status neutral testing, an opportunity to engage and retain people in services regardless of if they need treatment or prevention, led to testing for VMMC, ANC, and PrEP. PrEP and VMMC both had historic global target achievements, with many OUs on track to meet their annual targets.
 
@@ -238,6 +290,8 @@ prep_val <- df_msd %>%
     filter(period == metadata$curr_pd) %>% 
     mutate(value= comma(value)) %>% 
     pull(value)
+
+prep_val <- grab_qtr_totalnum(df_msd, "PrEP_NEW")
 
 prep_achv <- df_msd %>%
     filter(funding_agency == "USAID",
@@ -293,4 +347,104 @@ kp_prep_achv <- kp_prep_val / kp_prep_targ
 
 ```
 
--   **PrEP:** USAID supported `r prep_val` to initiate PrEP in `r metadata$curr_pd` **reaching `r prep_achv`of our annual PrEP_NEW target,** with `r prep_cntry_achv` countries achieving 20% or greater of PrEP_NEW as of `r metadata$curr_pd`. USAID continues to reach key and priority populations with PrEP, initiating `r comma(kp_prep_val)` key populations on PrEP (`r percent(kp_prep_achv, 1)` PrEP_NEW achievement), and initiating `r comma(prep_agyw_val)` AGYW on PrEP (`r prep_agyw_achv` PrEP_NEW achievement). PEPFAR supports the UNAIDS goal of having 10 million people on PrEP globally by 2025.
+-   **PrEP:** USAID supported `r comma(prep_val)` to initiate PrEP in `r metadata$curr_pd` **reaching `r prep_achv`of our annual PrEP_NEW target,** with `r prep_cntry_achv` countries achieving 20% or greater of PrEP_NEW as of `r metadata$curr_pd`. USAID continues to reach key and priority populations with PrEP, initiating `r comma(kp_prep_val)` key populations on PrEP (`r percent(kp_prep_achv, 1)` PrEP_NEW achievement), and initiating `r comma(prep_agyw_val)` AGYW on PrEP (`r prep_agyw_achv` PrEP_NEW achievement). PEPFAR supports the UNAIDS goal of having 10 million people on PrEP globally by 2025.
+
+```{r hts}
+#| echo: TRUE
+#| include: FALSE
+
+hts_val <- grab_qtr_totalnum(df_msd, "HTS_TST")
+htspos_val <- grab_qtr_totalnum(df_msd, "HTS_TST_POS")
+tx_new_val <- grab_qtr_totalnum(df_msd, "TX_NEW")
+
+hts_pos_kp_val <- pull_kp(df = df_msd, indic = "HTS_TST_POS", val_type = "cumulative", FALSE)
+
+hts_pos_peds_val <- grab_result_disagg(df_msd, "HTS_TST_POS", pop = "Peds") %>% pull(cumulative)
+hts_pos_agyw_val <- grab_result_disagg(df_msd, "HTS_TST_POS", pop = "AGYW") %>% pull(cumulative)
+
+hts_mod <- df_msd %>%
+ # resolve_knownissues() %>% 
+  filter(funding_agency == "USAID",
+         indicator== "HTS_TST",
+         standardizeddisaggregate == "Modality/Age/Sex/Result",
+         #target_modality_2024 == c("VMMC", "PMTCT ANC", "Post ANC1"),
+         fiscal_year == metadata$curr_fy) %>%
+  group_by(indicator, funding_agency, fiscal_year, target_modality_2024) %>% 
+  summarise(across(matches("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  #ungroup() %>% 
+  filter(target_modality_2024 %in% c("VMMC", "PMTCT ANC", "Post ANC1")) %>% 
+  reshape_msd() %>% 
+  pivot_wider(names_from = "target_modality_2024") %>% 
+  mutate(ANC = `PMTCT ANC` + `Post ANC1`)
+
+hts_mod_vmmc <- hts_mod %>% pull(VMMC)
+hts_mod_anc <- hts_mod %>% pull(ANC)
+
+```
+
+-   **Testing:** In FY24Q1, USAID provided **`r comma(hts_val)` HIV tests**, enabling **`r comma(htspos_val)` people to learn of their HIV positive status**, with `r comma(tx_new_val)` PLHIV new on treatment. Of those identified seropositive, `r comma(hts_pos_peds_val)` were children (01-14), `r comma(hts_pos_agyw_val)` were AGYW (10-24) and `r comma(hts_pos_kp_val)` identified as Key Populations. Status neutral testing also led to `r comma(hts_mod_vmmc)` tests through VMMC and `r comma(hts_mod_anc)` ANC tests.
+
+```{r hts_self}
+#| echo: TRUE
+#| include: FALSE
+
+hts_self_val <- grab_result_disagg(df_msd, "HTS_SELF", pop = "All") %>% pull(cumulative)
+hts_self_achv <- grab_result_disagg(df_msd, "HTS_SELF", pop = "All") %>% pull(achv)
+
+```
+
+-   **Self-Testing: USAID achieved `r hts_self_achv` of its global HTS_SELF target,** which represents `r comma(hts_self_val)` self test kits that were distributed to allow individuals to test where, when and with whom they want.
+
+```{r tx}
+#| echo: TRUE
+#| include: FALSE
+
+tx_nn_val <- grab_result_disagg(df_msd, "TX_NET_NEW", pop = "All") %>% pull(cumulative)
+
+tx_curr_val <- grab_result_disagg(df_msd, "TX_CURR", pop = "All") %>% pull(cumulative)
+
+tx_curr_youth_val <- grab_result_disagg(df_msd, "TX_CURR", pop = "Youth") %>% pull(cumulative)
+
+
+#limt to relevant indicators
+df_nn <- df_msd %>% 
+  filter(indicator %in% c("TX_CURR", "TX_NET_NEW"),
+         funding_agency == "USAID",
+         fiscal_year %in% c(2023, 2024)) %>% 
+  group_by(operatingunit, indicator, fiscal_year) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = TRUE),
+            .groups = "drop") %>% 
+  reshape_msd(include_type = FALSE) %>%
+  filter(value != 0)
+
+#growth rate by OU
+ df_nn %>% 
+  pivot_wider(names_from = indicator) %>% 
+ # mutate(positivity = HTS_TST_POS / HTS_TST) %>% 
+  group_by(operatingunit) %>% 
+  mutate(tx_gr = TX_NET_NEW / lag(TX_CURR, n = 1, order_by = period)) %>% 
+  ungroup() %>% 
+  filter(str_detect(period, "FY(24)")) %>% 
+  group_by(operatingunit) %>%
+  dplyr::mutate(tx_gr_rel_baseline = TX_CURR/TX_CURR[period == min(period)]) %>% 
+  ungroup() %>% 
+  arrange(desc(tx_gr)) %>%
+  mutate(tx_gr_pct = percent(tx_gr))
+
+```
+
+-   **Treatment:** USAID's **HIV treatment cohort fell by `r comma(tx_nn_val)` during `r metadata$curr_pd` to almost `r clean_number(tx_curr_val, 1)` people, including nearly `r clean_number(tx_curr_youth_val, 1)` children and youth (0-29 years)**. Growth in *Nigeria, Mozambique, and Tanzania* was particularly notable at over 10%. Most countries continued to enroll clients on ART at similar paces, however the TX_CURR cohort fell in *South Africa (-0.4% ↓), Zambia (-4.6↓ ) and Kenya (-0.5% ↓).* While all three OUs have a reduction in targets in FY23, there were increases in IIT in all three.
+
+-   **Interruptions in Treatment: TX_ML_IIT have increased  across PEPFAR, with USAID reaching 2.9% in IIT.** The substantial number ofPLHIV on ART for over six months make up the greater proportion of TX_CURR who experience an interruption at any given quarter. Continued attention on interventions to reduce IIT will be critical during COP23. 
+
+-   **MMD** (not including South Africa): USAID increased 3+MMD coverage from 83% in Q4 to 84% in Q1 and 6MMD coverage from 41% to 44% in the same period. **There are now more clients on 6MMD (2.27M) than 3-5MMD (2.01M).** Pediatric 3+MMD also increased from 66% in Q4 to 68% in Q1. USAID continues to be a leader in MMD, maintaining the highest rates of MMD coverage across all agencies. **Kenya** made substantial gains in 6MMD rollout increasing 6MMD coverage from 11% in Q4 to 17% in Q1 after years of policy and supply challenges. Conversely, Kenya's pediatric 3+MMD coverage dropped rather precipitously from 42% in Q4 to 33% in Q1. 
+
+-   **Viral Load Suppression:** USAID's PLHIV cohort on treatment who are virally suppressed has increased globally from 93% in FY21 to 95% at the end of FY22Q1. Twenty-one countries maintained or achieved 3rd 95 goals (up from 15 in Q4), however **3 countries remain below 90% VLS** (Haiti, South Sudan, and the DR); additionally, **VLC and VLS for children \<15 are only 81% and 86%, and only 69% and 80% for children \<5.** Importantly, we are seeing strong improvements in VLS for children in countries where pDTG uptake has been higher.  Countries are encouraged to budget and plan for use of DBS and POC technologies to ensure access to timely viral load monitoring, particularly for children, pregnant women, and other vulnerable and/or hard to reach populations.
+
+-   **Viral Load Coverage:** In FY23Q1, **viral load coverage (VLC) remained above 90% in 8 countries and increased globally to 80%.** Leveraging community programs is vital to eliminate this disparity and ensure VL testing is accessible outside facilities. 
+
+-   **TB/HIV:** USAID achieved 27% of its TB_STAT target in Q1, maintaining  **high performance for the percentage of TB cases that know their HIV Status (% coverage TB_STAT)** with 96%. OUs and partners have to improve performance in the pediatrics age bands \<1-04 where the TB_STAT coverage is the lowest (68-88%), by intensifying HIV testing in infants and toddlers using rapid POC testing in DOTS, pediatric and MCH clinics. The highest percentage of TB/HIV co-infection is in the 45-49 age band for both females and males; OUs should tailor services accordingly to manage the TB/HIV co-infection.
+
+-   **VMMC: USAID VMMC programs achieved 23% against an annual target of 667,681 in Q1**. Given a historically slow first quarter due to seasonality and holidays, this was a great start for the FY and comparable to CDC (25%) and DOD (30%). Several countries are using their most recent PHIA data to update VMMC coverage estimates and gap analysis towards achieving 90% MC coverage; this will inform COP23 planning and beyond. 
+
+\
