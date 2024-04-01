@@ -1,0 +1,900 @@
+---
+title: "FY24Q1 Review"
+author: "Karishma Srikanth"
+format: docx
+editor: visual
+---
+
+Hello OHA,  
+
+With COP season in full-swing, we know that you are all working above and beyond. Your time is valuable so, like last year, the program data review this quarter will be in the format of an email and will provide a succinct, focused summary of key new developments that have the potential to impact target setting and strategic discussions. For topics where Q1 data is available, the highlights focus on new findings most relevant for COP/ROP 23 Year 2 strategic directions. For topic areas that do not have new data available, the data highlights summarize the most significant findings from FY23, through the lens of COP/ROP 23 Year 2 preparation.
+
+This email is neither comprehensive nor exhaustive, but is meant to supplement data exploration and synthesis that is already ongoing through our country and technical clusters. The themes and subtopics in the email are based on "selected directions" for COP/ROP planning agreed upon as part of the [COP/ROP pre-planning discussions](https://docs.google.com/presentation/d/1zxf7C7mTiVC_HUdk3uUDOJQNvfjeeRKe/edit#slide=id.p10) and are informed by the pillars of the [PEPFAR 5-year strategy](https://www.state.gov/pepfar-five-year-strategy-2022/). 
+
+The goal of this snapshot is three-fold:  
+
+-   Highlight this quarter's key successes and challenges, linking our Q1 performance with the ongoing COP/ROP 23 Year 2 negotiations and planning 
+
+-   Consider how the Q1 data can guide, inform, and support our future priorities and vision
+
+-   Set priority directions for COP/ROP 23 Year 2 through a data-informed lens by highlighting the most salient findings from FY23
+
+```{r setup}
+#| echo: TRUE
+#| include: FALSE
+
+  library(tidyverse)
+  library(glitr)
+  library(glamr)
+  library(gophr)
+  library(systemfonts)
+  library(scales)
+  library(tidytext)
+  library(patchwork)
+  library(ggtext)
+  library(glue)
+  library(janitor)
+  library(lubridate)
+  library(googlesheets4)
+  library(mindthegap)
+
+options(scipen=999)
+```
+
+```{r data}
+#| echo: TRUE
+#| include: FALSE
+
+#Current MSD
+filepath <- si_path() %>% 
+  return_latest("MER_Structured_Datasets_OU_IM_FY22-24") 
+
+# Grab metadata
+metadata <- get_metadata(filepath) 
+
+# MSD PREP --------------------------------------
+
+#read MSD
+df_msd <- read_psd(filepath)
+
+df_msd <- df_msd %>% 
+  filter(indicatortype != "CS")
+```
+
+```{r data_prep_functions}
+#| echo: TRUE
+#| include: FALSE
+
+# eventually, have this be sourced
+load_secrets()
+
+
+#DREAMS PREP
+# Google sheet ID for DREAMS DSNU list
+  dsnu_g_id <- "1YaGWvpkiXVPiAwA3KyHwFtbZHrVeCz6DijWPCKpUN-Q"
+  
+  #MSD path
+  dsnu_msd_path <- si_path() %>% 
+    return_latest("PSNU_IM_DREAMS_FY22-24")
+  
+    #import DREAMS DSNU crosswalk
+    #recommend adding psnu_uids to this sheet
+ dsnu_list <- read_sheet(dsnu_g_id, sheet = "CURRENT (FY23/COP22)")
+
+#rename names
+names(dsnu_list)<-c("operatingunit", "psnu", "dsnu", "agencies_FY23")
+
+#import msd and filter to current year
+df_msd_dreams <- read_psd(dsnu_msd_path) %>% 
+  filter(fiscal_year == metadata$curr_fy)
+
+msd_dsnu_xwalk <- df_msd_dreams %>% 
+  count(operatingunit, operatingunituid, psnu, psnuuid, cop22_psnu, cop22_psnuuid, dsnu, dsnuuid) %>% 
+  mutate(raised_lvl = ifelse(psnuuid != cop22_psnuuid, TRUE, FALSE)) %>% 
+  mutate(dsnu_new = case_when(operatingunit != "Uganda" & raised_lvl == TRUE ~ cop22_psnu,
+                          TRUE ~ dsnu),
+         dsnuuid_new = case_when(operatingunit != "Uganda" & raised_lvl == TRUE ~ cop22_psnuuid,
+                          TRUE ~ dsnuuid))
+
+#join the new xwalk back to msd and then join the internal dsnu list to the msd
+df_dreams_all <- df_msd_dreams %>% 
+  left_join(msd_dsnu_xwalk) %>% 
+  left_join(dsnu_list, by=c("operatingunit", "cop22_psnu" = "psnu", "dsnu_new"= "dsnu"))
+
+#LOCAL PARTNER PREP
+#Read in the google sheet hyperfile with local partner
+sheet_id <- "1MQviknJkJDttGdNEJeNaYPKmHCw6BqPuJ0C5cslV5IE"
+
+df_partner <- read_sheet(sheet_id, sheet = "MechID-PartnerType", range = "A:B") %>% 
+  clean_names() %>% 
+  rename(mech_code = mechanism_id) %>% 
+  mutate(mech_code = as.character(mech_code),
+         partner_type = case_when(partner_type == "Regional" ~ "Local",
+                                  partner_type == "TBD Local" ~ "Local", TRUE ~ partner_type))
+
+#FUNCTIONS----------------------------------------------------------------------
+
+#clean number function
+clean_number <- function(x, digits = 0){
+  dplyr::case_when(x >= 1e9 ~ glue("{round(x/1e9, digits)} billion"),
+                   x >= 1e6 ~ glue("{round(x/1e6, digits)} million"),
+                   x >= 1e3 ~ glue("{round(x/1e3, digits)} thousand"),
+                   #x <= 1e3 ~ glue("{round(x/1e3, digits)} thousand"),
+                   TRUE ~ glue("{x}"))
+}
+
+
+grab_qtr_totalnum <- function(df, indic) {
+ val <-  df %>%
+    filter(funding_agency == "USAID",
+           standardizeddisaggregate %in% c("Total Numerator"),
+           indicator %in% c(indic),
+           fiscal_year == metadata$curr_fy) %>%
+    group_by(funding_agency, indicator, fiscal_year) %>% 
+    summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>%
+    ungroup() %>% 
+    reshape_msd() %>%
+    filter(period == metadata$curr_pd) %>% 
+   # mutate(value= comma(value)) %>% 
+    pull(value)
+ 
+return(val)
+}
+
+
+grab_result_disagg <- function(df, indic, pop = NULL) {
+  
+  df_filter <- df %>%
+    filter(funding_agency == "USAID",
+           #standardizeddisaggregate %in% c("Age/Sex"),
+           indicator %in% c(indic),
+           fiscal_year == metadata$curr_fy,
+           use_for_age == "Y"
+    )
+  
+  if (pop == "AGYW") {
+    
+    df_filter <- df_filter %>% 
+      filter(sex == "Female",
+              target_age_2024 %in% c("15-24"))
+    
+  } else if (pop == "Peds") {
+    
+    df_filter <- df_filter %>% 
+      filter(target_age_2024 %in% c("01-09", "10-14"))
+  } else if (pop == "Youth") {
+     df_filter <- df_filter %>% 
+      filter(age_2019 %in% c("01-04", "05-09","10-14", "15-19", "20-24", "25-29"))
+  } else if (pop == "All") {
+    df_filter
+  }
+  
+  df_final <- df_filter %>% 
+    summarise(across(matches("targets|cumulative"), sum, na.rm = T)) %>% 
+    ungroup() %>% 
+    mutate(achv  = percent(cumulative/targets))
+  
+  return(df_final)
+  
+}
+
+#LP Function
+#result_type = value or share
+grab_lp_results_clean <- function(indic, result_type) {
+  
+  df_munge <- suppressMessages(df_msd %>% 
+                                 # bind_rows(df_arch) %>%
+                                 left_join(df_partner, by = c("mech_code")) %>%
+                                 filter(funding_agency == "USAID",
+                                        indicator == indic,
+                                        standardizeddisaggregate == "Total Numerator") %>% 
+                                 group_by(funding_agency, fiscal_year, indicator, partner_type) %>% 
+                                 summarise(across(cumulative, sum, na.rm = TRUE)) %>%
+                                 ungroup() %>% 
+                                 filter(partner_type != "TBD") %>%
+                                 #filter(fiscal_year != 2022) %>%
+                                 pivot_wider(names_from = partner_type, values_from = cumulative) %>%
+                                 group_by(fiscal_year) %>%
+                                 mutate(Total = International + Local,
+                                        share = Local / Total)  %>%
+                                 pivot_longer(cols = International:Total, names_to = "partner_type"))
+  
+  title_info_lp <- df_munge %>% 
+    filter(partner_type == "Local", fiscal_year == metadata$curr_fy) %>% 
+    select(fiscal_year, indicator, value, share) %>% 
+    mutate(
+      value = value %>% clean_number(1),#change to 1 if you want 1 decimal accuracy
+      share = percent(round(share, 2))) %>% 
+    pull(result_type)
+  
+  return(title_info_lp)
+}
+
+grab_lp_results <- function(indic, result_type, fy) {
+  
+  df_munge <- suppressMessages(df_msd %>% 
+                                 # bind_rows(df_arch) %>%
+                                 left_join(df_partner, by = c("mech_code")) %>%
+                                 filter(funding_agency == "USAID",
+                                        indicator == indic,
+                                        standardizeddisaggregate == "Total Numerator") %>% 
+                                 group_by(funding_agency, fiscal_year, indicator, partner_type) %>% 
+                                 summarise(across(cumulative, sum, na.rm = TRUE)) %>%
+                                 ungroup() %>% 
+                                 filter(partner_type != "TBD") %>%
+                                 #filter(fiscal_year != 2022) %>%
+                                 pivot_wider(names_from = partner_type, values_from = cumulative) %>%
+                                 group_by(fiscal_year) %>%
+                                 mutate(Total = International + Local,
+                                        share = Local / Total)  %>%
+                                 pivot_longer(cols = International:Total, names_to = "partner_type"))
+  
+  title_info_lp <- df_munge %>% 
+    filter(partner_type == "Local", fiscal_year == fy) %>% 
+    select(fiscal_year, indicator, value, share) %>% 
+    mutate(
+      value = value,#change to 1 if you want 1 decimal accuracy
+      share = percent(round(share, 2))) %>% 
+    pull(result_type) %>%
+  
+  return(title_info_lp)
+}
+
+
+#key pops function clean
+pull_kp <- function(df, indic, val_type, yr, clean = FALSE) {
+  # Ensure val_type is either "cumulative" or "targets"
+  if(!val_type %in% c("cumulative", "targets")) {
+    stop("val_type must be either 'cumulative' or 'targets'")
+  }
+  
+  # Dynamically set the weight based on val_type
+  wt_column <- ifelse(val_type == "cumulative", "cumulative", "targets")
+  
+  kp_val <- df %>%
+    filter(funding_agency == "USAID",
+           str_detect(standardizeddisaggregate, "KeyPop(?!\\/Status)"),
+           fiscal_year == yr) %>%
+    count(indicator, wt = .data[[wt_column]]) # Use dynamic weight
+  
+  if (clean == TRUE) {
+    kp_val <- kp_val %>% 
+      mutate(n = clean_number(n, 1)) %>% 
+      pivot_wider(names_from = indicator, values_from = n) %>% 
+      pull(indic)
+  } else {
+    kp_val <- kp_val %>% 
+      pivot_wider(names_from = indicator, values_from = n) %>% 
+      pull(indic)
+  }
+  
+  return(kp_val)
+}
+
+```
+
+### **STAYING THE COURSE ACROSS THE CASCADE (PREVENTION, TESTING, TREATMENT)**
+
+In Q1, USAID had strong performance across prevention, care and treatment programs that are pivotal to achieving epidemic control across our OUs. HTS achievement and treatment growth were strong, with several additional countries hitting the goal of 95% viral suppression. Despite these strong results, interruptions in treatment have increased across PEPFAR and must be addressed. One potential solution is increased use of MMD, and for the first time this quarter **USAID globally had more clients on 6MMD than 3MMD.** Pediatric treatment, including access to MMD and VLC, continued to be a challenge. Status neutral testing, an opportunity to engage and retain people in services regardless of if they need treatment or prevention, led to testing for VMMC, ANC, and PrEP. PrEP and VMMC both had historic global target achievements, with many OUs on track to meet their annual targets.
+
+```{r prep}
+#| echo: TRUE
+#| include: FALSE
+
+prep_val <- df_msd %>%
+    filter(funding_agency == "USAID",
+           standardizeddisaggregate %in% c("Total Numerator"),
+           indicator %in% c("PrEP_NEW"),
+           fiscal_year == metadata$curr_fy) %>%
+    group_by(funding_agency, indicator, fiscal_year) %>% 
+    summarise(across(starts_with("qtr"), sum, na.rm = T)) %>%
+    ungroup() %>% 
+    reshape_msd() %>%
+    filter(period == metadata$curr_pd) %>% 
+    mutate(value= comma(value)) %>% 
+    pull(value)
+
+prep_val <- grab_qtr_totalnum(df_msd, "PrEP_NEW")
+
+prep_achv <- df_msd %>%
+    filter(funding_agency == "USAID",
+           standardizeddisaggregate %in% c("Total Numerator"),
+           indicator %in% c("PrEP_NEW"),
+           fiscal_year == metadata$curr_fy) %>%
+    group_by(funding_agency, indicator, fiscal_year) %>% 
+    summarise(across(matches("targets|cumulative"), sum, na.rm = T)) %>% 
+    ungroup() %>% 
+    mutate(achv  = percent(cumulative/targets)) %>% 
+  pull(achv)
+
+prep_cntry_achv <- df_msd %>%
+  filter(funding_agency == "USAID",
+         standardizeddisaggregate %in% c("Total Numerator"),
+         indicator %in% c("PrEP_NEW"),
+         fiscal_year == metadata$curr_fy) %>%
+  group_by(funding_agency, country, indicator, fiscal_year) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T), .groups = "drop") %>% 
+  ungroup() %>% 
+  mutate(achv  = cumulative/targets) %>% 
+  arrange(desc(achv)) %>% 
+  mutate(over20_pct = ifelse(achv >= .2, TRUE, FALSE)) %>% 
+  count(over20_pct) %>% 
+  mutate(total = sum(n),
+         country_achv = glue("{n}/{total}")) %>% 
+  filter(over20_pct == TRUE) %>% 
+  pull(country_achv)
+
+prep_agyw <- df_msd %>%
+  filter(funding_agency == "USAID",
+         standardizeddisaggregate %in% c("Age/Sex"),
+         indicator %in% c("PrEP_NEW"),
+         fiscal_year == metadata$curr_fy,
+         sex == "Female",
+         target_age_2024 %in% c("15-24")
+  ) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(achv  = percent(cumulative/targets))
+
+prep_agyw_val <- prep_agyw %>% pull(cumulative)
+prep_agyw_achv <- prep_agyw %>% pull(achv)
+
+# lp_prep_val <- grab_lp_results("PrEP_NEW", "value") 
+# lp_prep_share <- grab_lp_results("PrEP_NEW", "share")
+
+#kp
+kp_prep_val <- pull_kp(df = df_msd, indic = "PrEP_NEW", val_type = "cumulative", yr = 2024, FALSE)
+kp_prep_targ <- pull_kp(df = df_msd, indic = "PrEP_NEW", val_type = "targets", yr = 2024, FALSE) 
+
+kp_prep_achv <- kp_prep_val / kp_prep_targ
+
+```
+
+-   **PrEP:** USAID supported `r comma(prep_val)` to initiate PrEP in `r metadata$curr_pd` **reaching `r prep_achv`of our annual PrEP_NEW target,** with `r prep_cntry_achv` countries achieving 20% or greater of PrEP_NEW as of `r metadata$curr_pd`. USAID continues to reach key and priority populations with PrEP, initiating `r comma(kp_prep_val)` key populations on PrEP (`r percent(kp_prep_achv, 1)` PrEP_NEW achievement), and initiating `r comma(prep_agyw_val)` AGYW on PrEP (`r prep_agyw_achv` PrEP_NEW achievement). PEPFAR supports the UNAIDS goal of having 10 million people on PrEP globally by 2025.
+
+```{r hts}
+#| echo: TRUE
+#| include: FALSE
+
+hts_val <- grab_qtr_totalnum(df_msd, "HTS_TST")
+htspos_val <- grab_qtr_totalnum(df_msd, "HTS_TST_POS")
+tx_new_val <- grab_qtr_totalnum(df_msd, "TX_NEW")
+
+hts_pos_kp_val <- pull_kp(df = df_msd, indic = "HTS_TST_POS", val_type = "cumulative",yr = 2024, FALSE)
+
+hts_pos_peds_val <- grab_result_disagg(df_msd, "HTS_TST_POS", pop = "Peds") %>% pull(cumulative)
+hts_pos_agyw_val <- grab_result_disagg(df_msd, "HTS_TST_POS", pop = "AGYW") %>% pull(cumulative)
+
+hts_mod <- df_msd %>%
+ # resolve_knownissues() %>% 
+  filter(funding_agency == "USAID",
+         indicator== "HTS_TST",
+         standardizeddisaggregate == "Modality/Age/Sex/Result",
+         #target_modality_2024 == c("VMMC", "PMTCT ANC", "Post ANC1"),
+         fiscal_year == metadata$curr_fy) %>%
+  group_by(indicator, funding_agency, fiscal_year, target_modality_2024) %>% 
+  summarise(across(matches("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  #ungroup() %>% 
+  filter(target_modality_2024 %in% c("VMMC", "PMTCT ANC", "Post ANC1")) %>% 
+  reshape_msd() %>% 
+  pivot_wider(names_from = "target_modality_2024") %>% 
+  mutate(ANC = `PMTCT ANC` + `Post ANC1`)
+
+hts_mod_vmmc <- hts_mod %>% pull(VMMC)
+hts_mod_anc <- hts_mod %>% pull(ANC)
+
+```
+
+-   **Testing:** In FY24Q1, USAID provided **`r comma(hts_val)` HIV tests**, enabling **`r comma(htspos_val)` people to learn of their HIV positive status**, with `r comma(tx_new_val)` PLHIV new on treatment. Of those identified seropositive, `r comma(hts_pos_peds_val)` were children (01-14), `r comma(hts_pos_agyw_val)` were AGYW (10-24) and `r comma(hts_pos_kp_val)` identified as Key Populations. Status neutral testing also led to `r comma(hts_mod_vmmc)` tests through VMMC and `r comma(hts_mod_anc)` ANC tests.
+
+```{r hts_self}
+#| echo: TRUE
+#| include: FALSE
+
+hts_self_val <- grab_result_disagg(df_msd, "HTS_SELF", pop = "All") %>% pull(cumulative)
+hts_self_achv <- grab_result_disagg(df_msd, "HTS_SELF", pop = "All") %>% pull(achv)
+
+```
+
+-   **Self-Testing: USAID achieved `r hts_self_achv` of its global HTS_SELF target,** which represents `r comma(hts_self_val)` self test kits that were distributed to allow individuals to test where, when and with whom they want.
+
+```{r tx}
+#| echo: TRUE
+#| include: FALSE
+
+tx_nn_val <- grab_result_disagg(df_msd, "TX_NET_NEW", pop = "All") %>% pull(cumulative)
+
+tx_curr_val <- grab_result_disagg(df_msd, "TX_CURR", pop = "All") %>% pull(cumulative)
+
+tx_curr_youth_val <- grab_result_disagg(df_msd, "TX_CURR", pop = "Youth") %>% pull(cumulative)
+
+
+#limt to relevant indicators
+df_nn <- df_msd %>% 
+  filter(indicator %in% c("TX_CURR", "TX_NET_NEW"),
+         funding_agency == "USAID",
+         fiscal_year %in% c(2023, 2024)) %>% 
+  group_by(operatingunit, indicator, fiscal_year) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = TRUE),
+            .groups = "drop") %>% 
+  reshape_msd(include_type = FALSE) %>%
+  filter(value != 0)
+
+#growth rate by OU
+ df_nn %>% 
+  pivot_wider(names_from = indicator) %>% 
+ # mutate(positivity = HTS_TST_POS / HTS_TST) %>% 
+  group_by(operatingunit) %>% 
+  mutate(tx_gr = TX_NET_NEW / lag(TX_CURR, n = 1, order_by = period)) %>% 
+  ungroup() %>% 
+  filter(str_detect(period, "FY(24)")) %>% 
+  group_by(operatingunit) %>%
+  dplyr::mutate(tx_gr_rel_baseline = TX_CURR/TX_CURR[period == min(period)]) %>% 
+  ungroup() %>% 
+  arrange(desc(tx_gr)) %>%
+  mutate(tx_gr_pct = percent(tx_gr))
+
+```
+
+-   **Treatment:** USAID's **HIV treatment cohort fell by `r comma(tx_nn_val)` during `r metadata$curr_pd` to almost `r clean_number(tx_curr_val, 1)` people, including nearly `r clean_number(tx_curr_youth_val, 1)` children and youth (0-29 years)**. *Growth in Nigeria, Mozambique, and Tanzania was particularly notable at over 10%. Most countries continued to enroll clients on ART at similar paces, however the TX_CURR cohort fell in South Africa (-0.4% ↓), Zambia (-4.6↓ ) and Kenya (-0.5% ↓). While all three OUs have a reduction in targets in FY23, there were increases in IIT in all three.*
+
+```{r tx_ml}
+#| echo: TRUE
+#| include: FALSE
+
+# come back to this one
+
+ df_iit <- df_msd %>% 
+   filter(funding_agency == "USAID",
+         # indicatortype != "CS",
+          fiscal_year == metadata$curr_fy,
+          indicator %in% c("TX_ML", "TX_CURR", "TX_NEW", "TX_CURR_Lag1", "TX_RTT"), 
+          standardizeddisaggregate %in% c("Age/Sex/HIVStatus","Age/Sex/CD4/HIVStatus", "Age/Sex/ARTNoContactReason/HIVStatus")) %>% 
+   group_by(fiscal_year, indicator) %>%
+   summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
+   reshape_msd(include_type = FALSE) %>% 
+   pivot_wider(names_from = "indicator",
+               names_glue = "{tolower(indicator)}") %>% 
+   rowwise() %>% 
+   mutate(iit = tx_ml / sum(tx_curr_lag1, tx_new, na.rm = TRUE)) %>% 
+   ungroup()
+
+```
+
+-   **Interruptions in Treatment: TX_ML_IIT have increased  across PEPFAR, with USAID reaching 2.9% in IIT.** *The substantial number of PLHIV on ART for over six months make up the greater proportion of TX_CURR who experience an interruption at any given quarter.* Continued attention on interventions to reduce IIT will be critical during COP23.
+
+```{r mmd}
+#| echo: TRUE
+#| include: FALSE
+
+#keep just TX_CURR/MMD
+df_mmd <- df_msd %>% 
+  filter(funding_agency == "USAID",
+         indicator == "TX_CURR",
+         operatingunit != "South Africa",
+         fiscal_year %in% c(2023, 2024),
+         standardizeddisaggregate %in% c("Total Numerator", "Age/Sex/ARVDispense/HIVStatus")) %>% 
+  mutate(otherdisaggregate = case_when(is.na(otherdisaggregate) ~ "total",
+                                       TRUE ~ str_remove(otherdisaggregate, "ARV Dispensing Quantity - ")
+  )) 
+
+#add in agency agg and reshape
+df_mmd <- df_mmd %>%
+  bind_rows(df_mmd  %>%
+              mutate(operatingunit = "USAID",
+                     country = "USAID")) %>% 
+  group_by(fiscal_year, operatingunit, country, indicator, otherdisaggregate) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = TRUE), .groups = "drop") %>% 
+  reshape_msd() %>% 
+  filter(value > 0)
+
+mmd_by_type <- df_mmd %>% 
+  filter(operatingunit == "USAID",
+         period == metadata$curr_pd) %>% 
+  pivot_wider(names_from = "otherdisaggregate")
+
+#create group for o3mo and o6mo via reshaping for plotting
+df_mmd_final <- df_mmd %>% 
+  mutate(operatingunit = recode(operatingunit,
+                                "Democratic Republic of the Congo" = "DRC",
+                                "Dominican Republic" = "DR"),
+         country = recode(country,
+                          "Democratic Republic of the Congo" = "DRC",
+                          "Dominican Republic" = "DR")) %>% 
+  select(-period_type) %>% 
+  pivot_wider(names_from = otherdisaggregate) %>% 
+  rowwise() %>% 
+  mutate(#unknown = total - sum(`Less than 3 months`, `3 to 5 months`, `6 or more months`, na.rm = TRUE),
+    #unknown = ifelse(unknown < 0, 0, unknown),
+    o3mmd = sum(`3 to 5 months`, `6 or more months`, na.rm = TRUE)
+  ) %>%
+  ungroup() %>% 
+  rename(o6mmd = `6 or more months`) %>% 
+  select(-`Less than 3 months`, -`3 to 5 months`) %>% 
+  pivot_longer(-c(period, operatingunit, country, indicator, total), 
+               names_to = "otherdisaggregate",
+               values_to = "tx_mmd") %>% 
+  rename(tx_curr = total) %>% 
+  filter(operatingunit == "USAID") %>% 
+  arrange(otherdisaggregate, period) %>% 
+  mutate(otherdisaggregate = recode(otherdisaggregate,
+                                    "o3mmd" = "MMD - 3 months or more",
+                                    "o6mmd" = "MMD - 6 months or more")) %>% 
+  mutate(share = tx_mmd / tx_curr)
+
+fy23q4_3_mmd <- df_mmd_final %>% 
+  filter(period == "FY23Q4",
+         str_detect(otherdisaggregate, "3")) %>% 
+  pull(share)
+
+fy24q1_3_mmd <- df_mmd_final %>% 
+  filter(period == "FY24Q1",
+         str_detect(otherdisaggregate, "3")) %>% 
+  pull(share)
+
+fy23q4_6_mmd <- df_mmd_final %>% 
+  filter(period == "FY23Q4",
+         str_detect(otherdisaggregate, "6")) %>% 
+  pull(share)
+
+fy24q1_6_mmd <- df_mmd_final %>% 
+  filter(period == "FY24Q1",
+         str_detect(otherdisaggregate, "6")) %>% 
+  pull(share)
+
+
+mmd_3_5 <- mmd_by_type %>% 
+  pull(`3 to 5 months`)
+
+mmd_6 <- mmd_by_type %>% 
+  pull(`6 or more months`)
+
+```
+
+-   **MMD** (not including South Africa): USAID increased 3+MMD coverage from `r percent(fy23q4_3_mmd)` in Q4 to `r percent(fy24q1_3_mmd)`in Q1 and 6MMD coverage from `r percent(fy23q4_6_mmd)` to `r percent(fy24q1_6_mmd)` in the same period. **There are now more clients on 6MMD (`r clean_number(mmd_3_5, 1)`) than 3-5MMD (`r clean_number(mmd_6, 1)`).** *Pediatric 3+MMD also increased from 66% in Q4 to 68% in Q1. USAID continues to be a leader in MMD, maintaining the highest rates of MMD coverage across all agencies. **Kenya** made substantial gains in 6MMD rollout increasing 6MMD coverage from 11% in Q4 to 17% in Q1 after years of policy and supply challenges. Conversely, Kenya's pediatric 3+MMD coverage dropped rather precipitously from 42% in Q4 to 33% in Q1.* 
+
+```{r vls}
+#| echo: TRUE
+#| include: FALSE
+
+df_vls_global <-  df_msd %>% 
+  clean_indicator() %>% 
+  clean_agency() %>% 
+  clean_countries(colname = "country") %>% 
+  filter(
+    # fiscal_year != curr_fy + 1,
+    funding_agency == "USAID",
+    indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+    standardizeddisaggregate %in% c("Total Numerator", "Total Denominator")
+  ) %>% 
+  group_by(fiscal_year, funding_agency, indicator) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  reshape_msd() %>% 
+  dplyr::select(-period_type) %>% 
+  pivot_wider(names_from = indicator, values_from = value) %>% 
+  group_by(funding_agency) %>% 
+  mutate(TX_CURR_LAG2 = lag(TX_CURR, 2, order_by = period),
+         VLC = TX_PVLS_D / TX_CURR_LAG2,
+         VLS = TX_PVLS/TX_PVLS_D) %>% 
+  ungroup() %>% 
+  relocate(TX_CURR_LAG2, .before = TX_CURR) %>% 
+  filter(!is.na(TX_PVLS_D), TX_PVLS_D > 0)
+
+fy22_vls <- df_vls_global %>% 
+  filter(period == "FY22Q4") %>% 
+  pull(VLS)
+
+fy24_vls <- df_vls_global %>% 
+  filter(period == metadata$curr_pd) %>% 
+  pull(VLS)
+
+# country level
+
+df_tx_ou <- df_msd %>% 
+  clean_indicator() %>% 
+  clean_agency() %>% 
+  clean_countries(colname = "country") %>% 
+  filter(
+    # fiscal_year != curr_fy + 1,
+    funding_agency == "USAID",
+    indicator %in% c("TX_CURR", "TX_PVLS_D", "TX_PVLS"),
+    standardizeddisaggregate %in% c("Total Numerator", "Total Denominator")
+  ) %>% 
+  group_by(fiscal_year, funding_agency, country, indicator) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  reshape_msd() %>% 
+  dplyr::select(-period_type) %>% 
+  pivot_wider(names_from = indicator, values_from = value) %>% 
+  group_by(funding_agency, country) %>% 
+  mutate(TX_CURR_LAG2 = lag(TX_CURR, 2, order_by = period),
+         VLC = TX_PVLS_D / TX_CURR_LAG2,
+         VLS = TX_PVLS/TX_PVLS_D) %>% 
+  ungroup() %>% 
+  relocate(TX_CURR_LAG2, .before = TX_CURR) %>% 
+  filter(!is.na(TX_PVLS_D), TX_PVLS_D > 0)
+
+under_90_vls <<- df_tx_ou %>% filter(period == metadata$curr_pd,
+                                     VLS <.9) %>% 
+  nrow()
+
+under_90_vls_cntry <<- df_tx_ou %>% filter(period == metadata$curr_pd,
+                    VLS <.9) %>% 
+    summarise(concatenated_countries = paste(country, collapse = ", ")) %>%
+    pull(concatenated_countries)
+
+meet_95_vls_24 <<- df_tx_ou %>% 
+  mutate(round_vls = round(VLS, 2)) %>% 
+  filter(period == metadata$curr_pd, round_vls >= .95) %>%
+  distinct(country) %>% nrow()
+
+meet_95_vls_23 <<- df_tx_ou %>% 
+  mutate(round_vls = round(VLS, 2)) %>% 
+  filter(period == "FY23Q4", round_vls >= .95) %>% 
+  distinct(country) %>% nrow()
+
+
+# VLC -------
+global_vlc <- df_vls_global %>% 
+  filter(period == metadata$curr_pd) %>% 
+  pull(VLC)
+
+meet_90_vlc_24 <<- df_tx_ou %>% 
+  mutate(round_vls = round(VLC, 2)) %>% 
+  filter(period == metadata$curr_pd, round_vls >= .9) %>%
+  distinct(country) %>% nrow()
+```
+
+```{r peds_vls}
+#| echo: TRUE
+#| include: FALSE
+
+get_vls <- function(df, pop = NULL) {
+  
+  df_vl_peds <- df %>% 
+    clean_indicator() %>% 
+    clean_agency() %>% 
+    clean_countries(colname = "country") %>% 
+    filter(
+      indicatortype != "CS",
+      funding_agency == "USAID",
+      indicator %in% c("TX_PVLS_D", "TX_PVLS"),
+      standardizeddisaggregate %in% c("Age/Sex/Indication/HIVStatus", "Age/Sex/HIVStatus")
+    ) %>% 
+    group_by(fiscal_year, funding_agency, trendscoarse, age_2019, indicator) %>% 
+    summarise(across(cumulative, sum, na.rm = T), .groups = "drop") %>% 
+    pivot_wider(names_from = indicator, values_from = cumulative) %>% 
+    group_by(funding_agency, trendscoarse, age_2019) %>% 
+    filter(!is.na(TX_PVLS_D), TX_PVLS_D > 0)
+  
+  if (pop == "Peds") {
+    
+    vls_val <- df_vl_peds %>% 
+      group_by(fiscal_year, trendscoarse) %>% 
+      summarise(across(starts_with("TX"), sum, na.rm = T), .groups = "drop") %>% 
+      mutate(VLS = TX_PVLS/TX_PVLS_D) %>% 
+      filter(trendscoarse == "<15",
+             fiscal_year == metadata$curr_fy) %>% 
+      pull(VLS)
+    
+  } else if (pop == "Children") {
+    
+    vls_val <- df_vl_peds %>% 
+      group_by(fiscal_year, age_2019) %>% 
+      summarise(across(starts_with("TX"), sum, na.rm = T), .groups = "drop") %>% 
+      mutate(VLS = TX_PVLS/TX_PVLS_D) %>% 
+      filter(age_2019 == "01-04",
+             fiscal_year == metadata$curr_fy) %>% 
+      pull(VLS)
+  }
+  
+  return(vls_val)
+
+}
+
+vls_peds <- get_vls(df_msd, "Peds")
+vls_child <- get_vls(df_msd, "Children")
+```
+
+-   **Viral Load Suppression:** USAID's PLHIV cohort on treatment who are virally suppressed has increased globally from `r percent(fy22_vls)` in FY22 to `r percent(fy24_vls)` at the end of FY24Q1. `r meet_95_vls_24` countries maintained or achieved 3rd 95 goals (up from `r meet_95_vls_23` in Q4), however **`r under_90_vls` countries remain below 90% VLS** (`r under_90_vls_cntry`); additionally, VLS for children \<15 is only `r percent(vls_peds)`, and `r percent(vls_child)` for children \<5. *Importantly, we are seeing strong improvements in VLS for children in countries where pDTG uptake has been higher.  Countries are encouraged to budget and plan for use of DBS and POC technologies to ensure access to timely viral load monitoring, particularly for children, pregnant women, and other vulnerable and/or hard to reach populations.*
+
+-   **Viral Load Coverage:** In `r metadata$curr_pd`, USAID's **viral load coverage (VLC) remained above 90% in `r meet_90_vlc_24` countries and increased globally to `r percent(global_vlc)`.** Leveraging community programs is vital to eliminate this disparity and ensure VL testing is accessible outside facilities. 
+
+```{r tb}
+#| echo: TRUE
+#| include: FALSE
+
+df_tbstat <- df_msd %>% 
+  clean_indicator() %>% 
+  filter(indicator %in% c("TB_STAT", "TB_STAT_D"),
+         standardizeddisaggregate %in% c("Total Numerator", "Total Denominator"),
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy) %>%
+  group_by(indicator, fiscal_year) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T), .groups = "drop") %>% 
+  mutate(achv = cumulative/targets) 
+
+tbstat_achv <- df_tbstat %>% pull(achv)
+
+tbstat_cov <- df_tbstat %>% 
+  select(-c(targets, achv)) %>% 
+  pivot_wider(names_from = "indicator", values_from = "cumulative") %>% 
+  mutate(cov = `TB_STAT` / `TB_STAT_D`) %>% 
+  pull(cov)
+```
+
+-   **TB/HIV:** USAID achieved `r percent(tbstat_achv)` of its TB_STAT target in Q1, maintaining  **high performance for the percentage of TB cases that know their HIV Status (% coverage TB_STAT)** with `r percent(tbstat_cov)`. *OUs and partners have to improve performance in the pediatrics age bands \<1-04 where the TB_STAT coverage is the lowest (68-88%), by intensifying HIV testing in infants and toddlers using rapid POC testing in DOTS, pediatric and MCH clinics. The highest percentage of TB/HIV co-infection is in the 45-49 age band for both females and males; OUs should tailor services accordingly to manage the TB/HIV co-infection.*
+
+```{r vmmc}
+#| echo: TRUE
+#| include: FALSE
+
+df_vmmc <- df_msd %>% 
+  filter(indicator == "VMMC_CIRC",
+         standardizeddisaggregate == "Total Numerator",
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T), .groups = "drop") %>% 
+  mutate(achv = cumulative/targets)
+
+vmmc_achv <- df_vmmc %>% pull(achv)
+vmmc_targets <- df_vmmc %>% pull(targets)
+
+df_vmmc_agency <- df_msd %>% 
+  filter(indicator == "VMMC_CIRC",
+         standardizeddisaggregate == "Total Numerator",
+         #funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy) %>% 
+  group_by(indicator, funding_agency, fiscal_year) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T), .groups = "drop") %>% 
+  mutate(achv = cumulative/targets)
+
+vmmc_cdc_achv <- df_vmmc_agency %>% filter(funding_agency == "HHS/CDC") %>% pull(achv)
+vmmc_dod_achv <- df_vmmc_agency %>% filter(funding_agency == "DOD") %>% pull(achv)
+
+```
+
+-   **VMMC: USAID VMMC programs achieved `r percent(vmmc_achv)` against an annual target of `r comma(vmmc_targets)` in Q1**. Given a historically slow first quarter due to seasonality and holidays, this was a great start for the FY and comparable to CDC (`r percent(vmmc_cdc_achv)`) and DOD (`r percent(vmmc_dod_achv)`). *Several countries are using their most recent PHIA data to update VMMC coverage estimates and gap analysis towards achieving 90% MC coverage; this will inform COP23 planning and beyond.* 
+
+### **REACHING FOR EQUITY ACROSS POPULATIONS**
+
+As demonstrated in the PEPFAR 5x3 strategy, health equity among priority populations is a key focus for COP23 planning.  FY23 data underscore disparities in results among critical subpopulations  calling for focused attention to the specific needs of children, AGYW/adolescents, and key populations (including the five KP subgroups), across the prevention landscape and the HIV clinical cascade.  The key points below highlight USAID successes to be expanded, punctuate outstanding gaps requiring greater focused  attention, and include additional data resources in support of Key and Priority Population planning for COP23 Year 2.
+
+```{r kp_prev}
+#| echo: TRUE
+#| include: FALSE
+
+kp_prev_val_fy23 <- pull_kp(df = df_msd, indic = "KP_PREV", val_type = "cumulative", yr = 2023, FALSE)
+kp_prev_val_fy22 <- pull_kp(df = df_msd, indic = "KP_PREV", val_type = "cumulative", yr = 2022, FALSE)
+
+
+pct_change <- (-1*(kp_prev_val_fy23 - kp_prev_val_fy22) / kp_prev_val_fy22) 
+```
+
+-   **Key Populations: During FY23, USAID provided primary and secondary prevention services to nearly `r clean_number(kp_prev_val_fy23)` KP, reaching `r percent(pct_change)` less KP compared to FY22.** *Assessing prevention coverage at a population level is a critical element for expanding access to comprehensive prevention services for KP, and this requires data such as KP size estimates from Integrated Biobehavioral Surveillance (IBBS) surveys, which can be accessed through the [UNAIDS KP Atlas](https://kpatlas.unaids.org/dashboard) and soon a streamlined [Tableau Dashboard](https://tableau.usaid.gov/#/workbooks/4525?:origin=card_share_link). In COP23 PLLs, SGAC earmarked funding for IBBS surveys in [16 countries](https://docs.google.com/spreadsheets/d/1pVCFNELK7f6JKS31oDmAQzvQBEqGbKbnz5cP4RQMijg/edit?usp=sharing) to update KP prevention coverage and population size estimates.*
+
+```{r peds}
+#| echo: TRUE
+#| include: FALSE
+
+```
+
+-   **Pediatrics and Adolescents:** Pediatric and adolescent epidemic control progress across the clinical cascade continues to lag behind adult outcomes in most OUs, particularly in case finding and viral load coverage and suppression. **Of the seven OUs prioritized for intensive support to close pediatric, adolescent and PMTCT gaps in COP22 under the AP3 initiative, only DRC and Zambia met pediatric case finding and treatment initiation targets and only Mozambique, South Africa and Zimbabwe met adolescent case finding and treatment initiation targets.**  Closing the pediatric and adolescent gap in all OUs will require focus on: 1) improving EID coverage/linkage as well as setting pediatric testing targets high enough to close gaps, 2) rapid adoption of pediatric DTG and scale up of MMD for children to increase adherence and viral suppression, and 3) continued strengthening of the collaboration between OVC and pediatric clinical programming. See the [PMB COP23 Resources Honeycomb](https://docs.google.com/presentation/d/1UK-RO5wfSX3JkwBmqm1j5OnHsvL3_eF7zL7sSsQb4wM/edit#slide=id.g210a971f23c_0_140) for more useful materials.
+
+```{r pmtct}
+#| echo: TRUE
+#| include: FALSE
+
+df_pmtct <- df_msd %>% 
+  clean_indicator() %>% 
+  filter(indicator %in% c("PMTCT_STAT", "PMTCT_ART"),
+         standardizeddisaggregate == "Total Numerator",
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy) %>% 
+  group_by(indicator, fiscal_year) %>% 
+  summarise(across(matches("targets|cumulative"), sum, na.rm = T), .groups = "drop") %>% 
+  mutate(achv = cumulative/targets)
+
+pmtct_stat_val <- df_pmtct %>% filter(indicator == "PMTCT_STAT") %>% pull(cumulative)
+pmtct_art_val <- df_pmtct %>% filter(indicator == "PMTCT_ART") %>% pull(cumulative)
+
+
+post_anc1_change <- df_msd %>% 
+  clean_indicator() %>% 
+  filter(indicator %in% c("HTS_TST"),
+         standardizeddisaggregate == "Modality/Age/Sex/Result",
+         funding_agency == "USAID") %>% 
+  group_by(indicator, fiscal_year, target_modality_2024) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>%
+  reshape_msd() %>% 
+ # mutate(achv = cumulative/targets) %>% 
+  filter(period %in% c("FY23Q4", "FY24Q1"),
+         target_modality_2024 == "Post ANC1") %>% 
+  pivot_wider(names_from = "period") %>% 
+  mutate(pct_change = (`FY24Q1`-`FY23Q4`)/`FY23Q4`) %>% 
+  pull(pct_change)
+
+pw_vls <- df_msd %>% 
+  clean_indicator() %>% 
+  clean_agency() %>% 
+  clean_countries(colname = "country") %>% 
+  filter(
+    funding_agency == "USAID",
+    indicator %in% c("TX_PVLS_D", "TX_PVLS"),
+    standardizeddisaggregate %in% c("PregnantOrBreastfeeding/Indication/HIVStatus", "Sex/PregnantOrBreastfeeding/HIVStatus")
+  ) %>% 
+  group_by(fiscal_year, funding_agency, indicator) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  reshape_msd() %>% 
+  dplyr::select(-period_type) %>% 
+  pivot_wider(names_from = indicator, values_from = value) %>% 
+  group_by(funding_agency) %>% 
+  mutate(VLS = TX_PVLS/TX_PVLS_D) %>% 
+  ungroup() %>% 
+  filter(!is.na(TX_PVLS_D), TX_PVLS_D > 0,
+         period == metadata$curr_pd) %>% 
+  pull(VLS)
+
+eid_cov <- df_msd %>% 
+  #clean_indicator() %>% 
+  filter(indicator %in% c("PMTCT_EID"),
+         standardizeddisaggregate %in% c("Age","Age/EID", "Total Denominator"),
+         funding_agency == "USAID") %>%
+  group_by(indicator, fiscal_year, age_2019) %>% 
+  summarise(across(starts_with("qtr"), sum, na.rm = T), .groups = "drop") %>% 
+  mutate(age_2019 =ifelse(age_2019  == "N/A", "Total Denominator", age_2019)) %>% 
+  reshape_msd() %>% 
+  pivot_wider(names_from = "age_2019") %>%
+  mutate(eid_cov = `<=02 Months`/`Total Denominator`) 
+
+eid_cov_fy23q4 <- eid_cov %>% filter(period == "FY23Q4") %>% pull(eid_cov)
+eid_cov_fy24q1 <- eid_cov %>% filter(period == "FY24Q1") %>% pull(eid_cov)
+```
+
+-   **Pregnant and Breastfeeding Women:** In `r metadata$curr_pd`, USAID reached `r comma(pmtct_stat_val)` pregnant women (PW) with HIV testing services and linked `r comma(pmtct_art_val)` PW living with HIV to ART. Post-ANC1 testing, a crucial approach to identify incident HIV infections among pregnant and breastfeeding women (PBFW), increased by `r percent(post_anc1_change)` from FY23Q4 to `r metadata$curr_pd`. Viral load suppression for PBFW is at `r percent(pw_vls)` in FY24Q1, and early infant diagnostic testing by 2 months of age has improved from `r percent(eid_cov_fy23q4)` in FY23Q4  to `r percent(eid_cov_fy24q1)` in FY24Q1, exceeding the 95% goal. For suggestions on programmatic interventions to reduce vertical transmission of HIV, please see PMB’s [Maternal Case Finding](https://docs.google.com/presentation/d/1EB78gDL7h7hPRPG_Jjr86DkSy-dA2TrD4IrTSqw4GkE/edit#slide=id.g1f12cb01052_0_890), [PBFW VL](https://docs.google.com/presentation/d/1EB78gDL7h7hPRPG_Jjr86DkSy-dA2TrD4IrTSqw4GkE/edit#slide=id.g1f12cb01052_0_1136), and [HEI and EID Resources “Honeycombs”](https://docs.google.com/presentation/d/1EB78gDL7h7hPRPG_Jjr86DkSy-dA2TrD4IrTSqw4GkE/edit#slide=id.g1f12cb01052_0_1450) 
+
+-   **Adolescent Girls and Young Women:** In FY23, USAID contributed to reaching up to than 2 million AGYW through DREAMS programming, representing 80% of the total number of AGYW supported by PEPFAR. In FY24, programs will continue to concentrate on PrEP expansion, quality comprehensive economic strengthening with countries programming towards saturation, and an increased focus on community mobilization and norms change activities.  COP23 DREAMS programs in seven OUs (Botswana, Eswatini, Lesotho, Namibia, Rwanda, Malawi, Zimbabwe) may need additional technical and advocacy support due to the removal of the DREAMS program control (DREAMS-specific budget allocation). 
+
+-   **Orphans and Vulnerable Children:** In FY23, USAID supported nearly 5.6 million orphans and vulnerable children (OVC) and their families affected by HIV in 23 countries, including more than 442,000 children and adolescents living with HIV. USAID's OVC and DREAMS programs supported nearly 865,000 girls and boys ages 10-14 on primary prevention and sexual violence using evidence-based curricula. *OVC custom indicators showed a VLS rate of 93% in OVC clinical patients under 15 relative to 83% in non-OVC clinical patients under 15 (in the 12/23 OUs that reported).  The OVC program  will continue to prioritize increased enrollment of and service to this critical sub-group in FY23.  A new [Tableau Dashboard was developed to determine High-Burden sites within OVC supported districts](https://tableau.usaid.gov/#/views/OVCHighBurdenCo-location/Cover?:iid=1) to inform COP23 target setting and continue expanding coverage and access to OVC program services, which remains a critical priority for CLHIV and supporting families in epidemic control countries.*
+
+```{r gbv}
+#| echo: TRUE
+#| include: FALSE
+
+# for now, assume this is GEND_GBV total numerator - check with Allison S. tomorrow
+
+gbv_val_clean <- df_msd %>% 
+  filter(indicator == "GEND_GBV",
+         standardizeddisaggregate == "Total Numerator",
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy - 1) %>% 
+    summarise(across(starts_with("cumulative"), sum, na.rm = T)) %>% 
+    mutate(cumulative = clean_number(cumulative)) %>% 
+  pull(cumulative)
+
+gbv_val <- df_msd %>% 
+  filter(indicator == "GEND_GBV",
+         standardizeddisaggregate == "Total Numerator",
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy -1) %>% 
+    summarise(across(starts_with("cumulative"), sum, na.rm = T)) %>% 
+  pull(cumulative) 
+
+#local partner - GBV
+gbv_lp_pct <- grab_lp_results("GEND_GBV", "share", fy = 2023)
+
+gbv_cntry_val <- df_msd %>% 
+  filter(indicator == "GEND_GBV",
+         standardizeddisaggregate == "Total Numerator",
+         funding_agency == "USAID",
+         fiscal_year == metadata$curr_fy - 1) %>% 
+  group_by(fiscal_year, funding_agency, country, indicator) %>% 
+  summarise(across(cumulative, sum, na.rm = T), .groups = "drop") %>% 
+  distinct(country) %>% 
+  nrow() 
+
+```
+
+-   **Gender-based Violence:** USAID provides integrated gender-based violence clinical services in `r gbv_cntry_val` countries. In 2023, nearly **`r gbv_val_clean`** [**`r gbv_val`**] survivors received post-violence clinical care services through USAID, with local partners delivering the majority of care (**`r gbv_lp_pct`**). From 2000 to 2023, USAID has trained more than 1,200 individuals from 30 countries on first-line support using the World Health Organization’s LIVES approach.
+
+
+In FY23 USAID reached more survivors of violence with post-violence clinical care than any previous year, representing a continued trajectory of GBV program growth.  While only GEND-GBV targets are set as a part of the COP process, country teams should also plan for and monitor gender norms change activities to reach and maintain gains in HIV prevention and treatment. *In the five OUs where IPs reported the custom indicator [GEND_NORM](https://tableau.usaid.gov/views/GBVReviewWorkbook_16349128536800/GEND_NORM?:showAppBanner=false&:display_count=n&:showVizHome=n&:origin=viz_share_link) for FY23Q1, USAID reached over 29,000 people including community leaders with community mobilization and norms change interventions.*
