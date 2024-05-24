@@ -894,7 +894,6 @@ gbv_cntry_val <- df_msd %>%
 
 ```
 
--   **Gender-based Violence:** USAID provides integrated gender-based violence clinical services in `r gbv_cntry_val` countries. In 2023, nearly **`r gbv_val_clean`** [**`r gbv_val`**] survivors received post-violence clinical care services through USAID, with local partners delivering the majority of care (**`r gbv_lp_pct`**). From 2000 to 2023, USAID has trained more than 1,200 individuals from 30 countries on first-line support using the World Health Organization’s LIVES approach.
-
+-   **Gender-based Violence:** USAID provides integrated gender-based violence clinical services in `r gbv_cntry_val` countries. In 2023, nearly **`r gbv_val_clean`** \[**`r gbv_val`**\] survivors received post-violence clinical care services through USAID, with local partners delivering the majority of care (**`r gbv_lp_pct`**). From 2000 to 2023, USAID has trained more than 1,200 individuals from 30 countries on first-line support using the World Health Organization’s LIVES approach.
 
 In FY23 USAID reached more survivors of violence with post-violence clinical care than any previous year, representing a continued trajectory of GBV program growth.  While only GEND-GBV targets are set as a part of the COP process, country teams should also plan for and monitor gender norms change activities to reach and maintain gains in HIV prevention and treatment. *In the five OUs where IPs reported the custom indicator [GEND_NORM](https://tableau.usaid.gov/views/GBVReviewWorkbook_16349128536800/GEND_NORM?:showAppBanner=false&:display_count=n&:showVizHome=n&:origin=viz_share_link) for FY23Q1, USAID reached over 29,000 people including community leaders with community mobilization and norms change interventions.*
