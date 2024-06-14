@@ -39,6 +39,10 @@ ind_sel <- c("HTS_TST","HTS_TST_POS", "TX_NEW", "TX_CURR", "TX_PVLS_D", "TX_PVLS
              "PrEP_NEW", "VMMC_CIRC", "OVC_SERV", "KP_PREV", "GEND_GBV", "PMTCT_EID", "TB_PREV")
 
 semi_annual <- c("OVC_SERV", "KP_PREV", "GEND_GBV", "TB_PREV")
+#Please include GEND_GBV @ Q2 and Q4 when new data is available so we can highlight programs providing HIV prevention to those reporting GBV to PEPFAR supported facilities. 
+#Responding to gender inequities and violence faced by these populations is an essential component of effective HIV prevention.
+#Monitoring this indicator is valuable to help the office to better understand preventative efforts and their impact in these populations.
+ 
 
 
 #caption info for plotting
